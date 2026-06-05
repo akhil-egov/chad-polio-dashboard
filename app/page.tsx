@@ -4,6 +4,7 @@ import { FileUpload } from '@/components/FileUpload'
 import { KPICards } from '@/components/KPICards'
 import { DateFilter } from '@/components/DateFilter'
 import { HFTable } from '@/components/HFTable'
+import { AlertBar } from '@/components/AlertBar'
 import { useDashboard } from '@/lib/dashboard-context'
 
 const CampaignMap = dynamic(() => import('@/components/CampaignMap').then(m => m.CampaignMap), { ssr: false })
@@ -20,6 +21,7 @@ export default function Home() {
           <h1 className="text-2xl font-bold text-gray-900">Chad Polio Campaign — War Room</h1>
           <p className="text-sm text-gray-500">N&apos;Djamena · Enumeration Jun 3–7 · Vaccination Jun 5–7</p>
         </div>
+        <AlertBar />
         <DateFilter />
         <KPICards />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
