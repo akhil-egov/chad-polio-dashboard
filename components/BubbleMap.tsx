@@ -1,0 +1,328 @@
+'use client'
+import { useState, useMemo, useEffect } from 'react'
+import { MapContainer, TileLayer, CircleMarker, GeoJSON, Marker, Popup, useMapEvents, useMap } from 'react-leaflet'
+import L from 'leaflet'
+import type { GeoJsonObject } from 'geojson'
+import type { PathOptions } from 'leaflet'
+import 'leaflet/dist/leaflet.css'
+import { IconArrowLeft } from '@tabler/icons-react'
+import { useDashboard } from '@/lib/dashboard-context'
+import { DateFilter } from '@/components/DateFilter'
+
+const ZOOM_THRESHOLD = 14
+
+// ── Coverage thresholds ──────────────────────────────────────────────────────
+function coverageInfo(pct: number) {
+  if (pct >= 60) return { color: '#2E7D32', label: '≥ 60% — On track' }
+  if (pct >= 40) return { color: '#F9A825', label: '≥ 40% — Active' }
+  if (pct >= 20) return { color: '#E65100', label: '≥ 20% — Low' }
+  return { color: '#C62828', label: '< 20% — Critical' }
+}
+
+// ── Bubble icon factory ──────────────────────────────────────────────────────
+function makeBubbleIcon(abbrev: string, covPct: number, records: number, color: string) {
+  const r = Math.max(26, Math.min(62, Math.sqrt(records) * 3.4))
+  const sz = Math.round(r * 2)
+  const fs1 = sz > 56 ? 10 : 9
+  const fs2 = sz > 56 ? 13 : 11
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${color};border:3px solid rgba(255,255,255,0.9);box-shadow:0 2px 12px rgba(0,0,0,0.28);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;"><div style="font-size:${fs1}px;font-weight:700;color:rgba(255,255,255,0.92);line-height:1.1;text-align:center;padding:0 3px;white-space:nowrap;">${abbrev}</div><div style="font-size:${fs2}px;font-weight:800;color:#fff;margin-top:1px;letter-spacing:-.3px;">${covPct.toFixed(1)}%</div></div>`,
+    iconSize: [sz, sz],
+    iconAnchor: [sz / 2, sz / 2],
+  })
+}
+
+// ── Boundary styles ──────────────────────────────────────────────────────────
+const ADM1_STYLE: PathOptions = { color: '#475569', weight: 1.5, fillOpacity: 0, dashArray: '6 3' }
+const ADM2_STYLE: PathOptions = { color: '#94a3b8', weight: 0.8, fillOpacity: 0.03, fillColor: '#e2e8f0' }
+const ADM2_HOVER: PathOptions = { color: '#1e40af', weight: 1.5, fillOpacity: 0.12, fillColor: '#bfdbfe' }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function onEachADM2(feature: any, layer: L.Layer) {
+  const name: string = feature.properties?.District ?? feature.properties?.RegName ?? ''
+  if ('setStyle' in layer) {
+    const path = layer as L.Path
+    layer.on({
+      mouseover() { path.setStyle(ADM2_HOVER); path.bringToFront() },
+      mouseout() { path.setStyle(ADM2_STYLE) },
+    })
+  }
+  if (name) (layer as L.Layer & { bindTooltip(s: string, o?: object): void }).bindTooltip(name, { sticky: true })
+}
+
+// ── Map sub-components ───────────────────────────────────────────────────────
+function ZoomWatcher({ onZoom }: { onZoom: (z: number) => void }) {
+  useMapEvents({ zoomend: e => onZoom((e.target as L.Map).getZoom()) })
+  return null
+}
+
+function FlyTo({ target }: { target: { pos: [number, number]; id: number } | null }) {
+  const map = useMap()
+  useEffect(() => {
+    if (!target) return
+    map.flyTo(target.pos, Math.max(map.getZoom(), ZOOM_THRESHOLD), { duration: 0.8 })
+  }, [target, map])
+  return null
+}
+
+// ── Main component ───────────────────────────────────────────────────────────
+export function BubbleMap({ onBack }: { onBack: () => void }) {
+  const { data, locations, locationsLoading, loadLocations, selectedDate } = useDashboard()
+
+  const [zoom, setZoom] = useState(12)
+  const [selectedFac, setSelectedFac] = useState<string | null>(null)
+  const [flyTarget, setFlyTarget] = useState<{ pos: [number, number]; id: number } | null>(null)
+  const [adm1, setAdm1] = useState<GeoJsonObject | null>(null)
+  const [adm2, setAdm2] = useState<GeoJsonObject | null>(null)
+  const [satOn, setSatOn] = useState(false)
+
+  useEffect(() => {
+    loadLocations()
+    fetch('/adm1.geojson').then(r => r.json()).then(setAdm1).catch(() => null)
+    fetch('/adm2.geojson').then(r => r.json()).then(setAdm2).catch(() => null)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Centroids computed from household points
+  const centroids = useMemo(() => {
+    const acc = new Map<string, { latSum: number; lngSum: number; n: number }>()
+    for (const loc of locations) {
+      if (!acc.has(loc.health_facility)) acc.set(loc.health_facility, { latSum: 0, lngSum: 0, n: 0 })
+      const c = acc.get(loc.health_facility)!
+      c.latSum += loc.latitude; c.lngSum += loc.longitude; c.n++
+    }
+    const out = new Map<string, [number, number]>()
+    for (const [fac, { latSum, lngSum, n }] of acc) out.set(fac, [latSum / n, lngSum / n])
+    return out
+  }, [locations])
+
+  // Facility summaries sorted worst coverage first
+  const facilities = useMemo(() => {
+    if (!data) return []
+    const acc = new Map<string, { vacc: number; eligible: number; records: number }>()
+    for (const row of data.hfSummary) {
+      if (selectedDate && row.date !== selectedDate) continue
+      if (!acc.has(row.health_facility)) acc.set(row.health_facility, { vacc: 0, eligible: 0, records: 0 })
+      const s = acc.get(row.health_facility)!
+      s.vacc += row.total_vaccinated
+      s.eligible += row.eligible_children_enumerated
+      s.records += row.total_enumeration_records
+    }
+    return Array.from(acc.entries())
+      .map(([name, { vacc, eligible, records }]) => {
+        const covPct = eligible > 0 ? (vacc / eligible) * 100 : 0
+        const { color } = coverageInfo(covPct)
+        return { name, records, covPct, color, abbrev: name.replace(/^CS\s+/i, '') }
+      })
+      .sort((a, b) => a.covPct - b.covPct)
+  }, [data, selectedDate])
+
+  const visibleBubbles = selectedFac ? facilities.filter(f => f.name === selectedFac) : facilities
+
+  const visibleLocs = useMemo(() => {
+    let locs = selectedDate ? locations.filter(l => l.date === selectedDate) : locations
+    if (selectedFac) locs = locs.filter(l => l.health_facility === selectedFac)
+    return locs
+  }, [locations, selectedDate, selectedFac])
+
+  function handleSelect(name: string) {
+    setSelectedFac(name)
+    const pos = centroids.get(name)
+    if (pos) setFlyTarget(prev => ({ pos, id: (prev?.id ?? 0) + 1 }))
+  }
+
+  function handleClear() {
+    setSelectedFac(null)
+    setFlyTarget(null)
+  }
+
+  const LEGEND_TIERS = [
+    { color: '#2E7D32', label: '≥ 60% — On track' },
+    { color: '#F9A825', label: '≥ 40% — Active' },
+    { color: '#E65100', label: '≥ 20% — Low' },
+    { color: '#C62828', label: '< 20% — Critical' },
+  ]
+
+  const DOT_LEGEND = [
+    { color: '#22c55e', label: 'Vaccinated' },
+    { color: '#f59e0b', label: 'Revisit' },
+    { color: '#ef4444', label: 'Enumerated only' },
+  ]
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-white" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" }}>
+
+      {/* ── Header ── */}
+      <div className="h-[52px] flex-shrink-0 flex items-center justify-between px-5 border-b border-gray-200 bg-white z-10 gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 shrink-0 transition-colors">
+            <IconArrowLeft size={16} /> Back
+          </button>
+          <div className="w-px h-5 bg-gray-200" />
+          <span className="bg-blue-800 text-white text-[10px] font-bold px-2 py-0.5 rounded shrink-0 tracking-wide">WHO AFRO</span>
+          <span className="text-sm font-semibold whitespace-nowrap">Chad Polio SIA · Enumeration Dashboard</span>
+          <span className="text-xs text-gray-400 whitespace-nowrap hidden md:block">N&apos;Djamena · Jun 2026</span>
+        </div>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <DateFilter hideLabel />
+          <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 whitespace-nowrap">
+            <span className="inline-block w-[7px] h-[7px] rounded-full bg-green-700 mr-1.5" />
+            {data?.generated_at
+              ? new Date(data.generated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+              : '—'} · {locations.length.toLocaleString()} records
+          </div>
+        </div>
+      </div>
+
+      {/* ── Body ── */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* ── Sidebar ── */}
+        <div className="w-[290px] flex-shrink-0 flex flex-col border-r border-gray-200 overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-gray-200 flex-shrink-0">
+            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Call list</div>
+            <div className="text-[11px] text-gray-400 mt-0.5">Worst coverage first · click to isolate</div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e5e7eb transparent' }}>
+            {facilities.map(fac => {
+              const sel = selectedFac === fac.name
+              return (
+                <div
+                  key={fac.name}
+                  onClick={() => handleSelect(fac.name)}
+                  className={`flex items-stretch cursor-pointer border-b border-gray-50 h-14 transition-colors ${sel ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                >
+                  <div className="flex-shrink-0 transition-all" style={{ background: fac.color, width: sel ? '6px' : '4px' }} />
+                  <div className="flex-1 px-3 py-2 min-w-0 flex flex-col justify-center">
+                    <div className={`text-[12px] font-semibold truncate ${sel ? 'text-blue-700' : 'text-gray-800'}`}>{fac.name}</div>
+                    <div className="text-[12px] font-semibold mt-0.5" style={{ color: fac.color }}>
+                      {fac.covPct.toFixed(1)}% <span className="text-gray-400 font-normal text-[10px]">coverage</span>
+                    </div>
+                  </div>
+                  <div className="px-3 py-2 text-right flex flex-col justify-center flex-shrink-0">
+                    <div className="text-[13px] font-semibold text-gray-800">{fac.records.toLocaleString()}</div>
+                    <div className="text-[10px] text-gray-400 mt-0.5">records</div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {selectedFac && (
+            <div className="flex-shrink-0 border-t border-gray-200">
+              <button onClick={handleClear} className="w-full h-10 bg-white hover:bg-gray-50 text-sm text-blue-700 font-medium transition-colors">
+                ✕ Show all facilities
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* ── Map ── */}
+        <div className="flex-1 relative min-w-0">
+          {locationsLoading && (
+            <div className="absolute inset-0 z-[900] flex items-center justify-center bg-white/70">
+              <p className="text-gray-500 text-sm">Loading household data…</p>
+            </div>
+          )}
+
+          <MapContainer center={[12.105, 15.07]} zoom={12} className="absolute inset-0" style={{ zIndex: 0 }}>
+            <TileLayer
+              key={satOn ? 'sat' : 'osm'}
+              url={satOn
+                ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'}
+              attribution={satOn ? '&copy; Esri' : '&copy; OpenStreetMap contributors'}
+            />
+
+            {adm2 && <GeoJSON key="adm2" data={adm2} style={() => ADM2_STYLE} onEachFeature={onEachADM2} />}
+            {adm1 && <GeoJSON key="adm1" data={adm1} style={() => ADM1_STYLE} />}
+
+            {/* Bubbles — shown when zoomed out */}
+            {zoom < ZOOM_THRESHOLD && visibleBubbles.map(fac => {
+              const pos = centroids.get(fac.name)
+              if (!pos) return null
+              return (
+                <Marker
+                  key={fac.name}
+                  position={pos}
+                  icon={makeBubbleIcon(fac.abbrev, fac.covPct, fac.records, fac.color)}
+                  eventHandlers={{ click: () => handleSelect(fac.name) }}
+                >
+                  <Popup>
+                    <strong>{fac.name}</strong><br />
+                    {fac.records.toLocaleString()} records · {fac.covPct.toFixed(1)}% coverage
+                  </Popup>
+                </Marker>
+              )
+            })}
+
+            {/* Dots — shown when zoomed in */}
+            {zoom >= ZOOM_THRESHOLD && visibleLocs.map((loc, i) => {
+              const fill = loc.status === 'vaccinated' ? '#22c55e' : loc.status === 'revisit' ? '#f59e0b' : '#ef4444'
+              const stroke = loc.status === 'vaccinated' ? '#16a34a' : loc.status === 'revisit' ? '#d97706' : '#dc2626'
+              return (
+                <CircleMarker key={i} center={[loc.latitude, loc.longitude]} radius={4}
+                  pathOptions={{ color: stroke, fillColor: fill, fillOpacity: 0.8, weight: 1 }}>
+                  <Popup>{loc.health_facility} · {loc.user_name} · {loc.status}</Popup>
+                </CircleMarker>
+              )
+            })}
+
+            <ZoomWatcher onZoom={setZoom} />
+            <FlyTo target={flyTarget} />
+          </MapContainer>
+
+          {/* Stats bar */}
+          <div className="absolute top-3 right-14 z-[800] flex gap-1.5 pointer-events-none">
+            <div className="bg-white/95 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-600 shadow-sm whitespace-nowrap">
+              <b>{visibleLocs.length.toLocaleString()}</b> households visible
+            </div>
+          </div>
+
+          {/* Satellite toggle */}
+          <div className="absolute top-3 right-3 z-[800]">
+            <button
+              onClick={() => setSatOn(s => !s)}
+              className="bg-white/95 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
+            >
+              {satOn ? '🗺 Street' : '🛰 Satellite'}
+            </button>
+          </div>
+
+          {/* Zoom hint */}
+          {zoom < ZOOM_THRESHOLD && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[800] bg-white/93 border border-gray-200 rounded-full px-4 py-1 text-xs text-gray-500 shadow pointer-events-none whitespace-nowrap">
+              Zoom in to see individual households
+            </div>
+          )}
+
+          {/* Legend */}
+          <div className="absolute bottom-6 left-3 z-[800] bg-white/96 border border-gray-200 rounded-lg px-3 py-2.5 shadow text-xs min-w-[170px]">
+            <div className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Coverage status</div>
+            {LEGEND_TIERS.map(({ color, label }) => (
+              <div key={label} className="flex items-center gap-1.5 mb-1 text-gray-600">
+                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
+                {label}
+              </div>
+            ))}
+            {zoom >= ZOOM_THRESHOLD && (
+              <>
+                <hr className="my-1.5 border-gray-100" />
+                <div className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">GPS dots</div>
+                {DOT_LEGEND.map(({ color, label }) => (
+                  <div key={label} className="flex items-center gap-1.5 mb-1 text-gray-600">
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
+                    {label}
+                  </div>
+                ))}
+              </>
+            )}
+            <hr className="my-1.5 border-gray-100" />
+            <div className="text-[10px] text-gray-400">Bubble size = records collected</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

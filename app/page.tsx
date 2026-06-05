@@ -1,5 +1,6 @@
 'use client'
 import dynamic from 'next/dynamic'
+import { useState } from 'react'
 import { KPICards } from '@/components/KPICards'
 import { DateFilter } from '@/components/DateFilter'
 import { HFTable } from '@/components/HFTable'
@@ -8,10 +9,11 @@ import { TeamActivityTable } from '@/components/TeamActivityTable'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useDashboard } from '@/lib/dashboard-context'
 
-const CampaignMap = dynamic(() => import('@/components/CampaignMap').then(m => m.CampaignMap), { ssr: false })
+const BubbleMap = dynamic(() => import('@/components/BubbleMap').then(m => m.BubbleMap), { ssr: false })
 
 export default function Home() {
   const { isLoading, error, data, loadLocations } = useDashboard()
+  const [activeTab, setActiveTab] = useState('overview')
 
   if (isLoading) {
     return (
@@ -27,6 +29,10 @@ export default function Home() {
         <p className="text-red-500 text-sm">Error: {error}</p>
       </main>
     )
+  }
+
+  if (activeTab === 'map') {
+    return <BubbleMap onBack={() => setActiveTab('overview')} />
   }
 
   return (
@@ -46,7 +52,10 @@ export default function Home() {
 
         <AlertBar />
 
-        <Tabs defaultValue="overview" onValueChange={v => { if (v === 'map') loadLocations() }}>
+        <Tabs value={activeTab} onValueChange={v => {
+          if (v === 'map') loadLocations()
+          setActiveTab(v)
+        }}>
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="map">Map</TabsTrigger>
@@ -59,16 +68,6 @@ export default function Home() {
             <div>
               <h2 className="text-base font-semibold mb-3 text-gray-700">Health Facility Coverage</h2>
               <HFTable />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="map" className="space-y-4">
-            <DateFilter />
-            <CampaignMap />
-            <div className="flex gap-4 text-xs text-gray-500">
-              <span><span className="inline-block w-3 h-3 rounded-full bg-green-500 mr-1 align-middle" />Vaccinated</span>
-              <span><span className="inline-block w-3 h-3 rounded-full bg-red-500 mr-1 align-middle" />Enumerated only</span>
-              <span><span className="inline-block w-3 h-3 rounded-full bg-amber-400 mr-1 align-middle" />Flagged for revisit</span>
             </div>
           </TabsContent>
 

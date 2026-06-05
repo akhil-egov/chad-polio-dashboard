@@ -8,7 +8,7 @@ function formatLabel(isoDate: string, hasVacc: boolean) {
   return hasVacc ? `${label} +Vacc` : label
 }
 
-export function DateFilter() {
+export function DateFilter({ hideLabel }: { hideLabel?: boolean } = {}) {
   const { data, selectedDate, setSelectedDate } = useDashboard()
 
   const dates = data
@@ -25,7 +25,7 @@ export function DateFilter() {
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <span className="text-sm font-medium text-gray-500">Day:</span>
+      {!hideLabel && <span className="text-sm font-medium text-gray-500">Day:</span>}
       <Button variant={!selectedDate ? 'default' : 'outline'} size="sm" onClick={() => setSelectedDate(null)}>All</Button>
       {dates.map(d => (
         <Button key={d.value} variant={selectedDate === d.value ? 'default' : 'outline'} size="sm" onClick={() => setSelectedDate(d.value)}>
