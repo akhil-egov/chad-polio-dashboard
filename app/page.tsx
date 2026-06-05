@@ -24,18 +24,17 @@ export default function Home() {
         <AlertBar />
         <DateFilter />
         <KPICards />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div>
-            <h2 className="text-base font-semibold mb-3 text-gray-700">Health Facility Coverage</h2>
-            <HFTable />
-          </div>
-          <div>
-            <h2 className="text-base font-semibold mb-3 text-gray-700">Household Locations</h2>
-            <CampaignMap />
-            <div className="flex gap-4 mt-2 text-xs text-gray-500">
-              <span><span className="inline-block w-3 h-3 rounded-full bg-green-500 mr-1 align-middle" />Vaccinated</span>
-              <span><span className="inline-block w-3 h-3 rounded-full bg-red-500 mr-1 align-middle" />Enumerated only</span>
-            </div>
+        <div>
+          <h2 className="text-base font-semibold mb-3 text-gray-700">Health Facility Coverage</h2>
+          <HFTable />
+        </div>
+        <div>
+          <h2 className="text-base font-semibold mb-3 text-gray-700">Household Locations</h2>
+          <CampaignMap />
+          <div className="flex gap-4 mt-2 text-xs text-gray-500">
+            <span><span className="inline-block w-3 h-3 rounded-full bg-green-500 mr-1 align-middle" />Vaccinated</span>
+            <span><span className="inline-block w-3 h-3 rounded-full bg-red-500 mr-1 align-middle" />Enumerated only</span>
+            <span><span className="inline-block w-3 h-3 rounded-full bg-amber-400 mr-1 align-middle" />Flagged for revisit</span>
           </div>
         </div>
       </div>

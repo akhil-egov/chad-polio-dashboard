@@ -31,7 +31,7 @@ export interface HouseholdLocationRow {
   household_id: string
   latitude: number
   longitude: number
-  status: 'enumerated' | 'vaccinated'
+  status: 'enumerated' | 'vaccinated' | 'revisit'
   date: string
 }
 
