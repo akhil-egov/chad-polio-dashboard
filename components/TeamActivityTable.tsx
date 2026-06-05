@@ -17,8 +17,7 @@ export function TeamActivityTable() {
   const { data, selectedDate } = useDashboard()
   if (!data) return null
 
-  const allTimes = data.userActivity.map(r => parseSync(r.last_sync_time).getTime())
-  const nowMs = Math.max(...allTimes)
+  const nowMs = Date.now()
   const SIX_HOURS = 6 * 60 * 60 * 1000
 
   const rows = data.userActivity

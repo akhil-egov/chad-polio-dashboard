@@ -46,6 +46,7 @@ export interface DailySummaryRow {
 }
 
 export interface DashboardData {
+  generated_at: string
   hfSummary: HFSummaryRow[]
   userActivity: UserActivityRow[]
   householdLocations: HouseholdLocationRow[]

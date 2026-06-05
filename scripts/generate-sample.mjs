@@ -107,9 +107,15 @@ const xlsxPath = 'scripts/chad-sample-data.xlsx'
 writeFileSync(xlsxPath, XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }))
 console.log(`✓ Written: ${xlsxPath}`)
 
-const jsonPath = 'public/data.json'
-writeFileSync(jsonPath, JSON.stringify({ hfSummary, userActivity, householdLocations, dailySummary }, null, 2))
-console.log(`✓ Written: ${jsonPath}`)
+const generatedAt = new Date().toISOString()
+
+const summaryPath = 'public/data-summary.json'
+writeFileSync(summaryPath, JSON.stringify({ generated_at: generatedAt, hfSummary, userActivity, dailySummary }, null, 2))
+console.log(`✓ Written: ${summaryPath}`)
+
+const locationsPath = 'public/data-locations.json'
+writeFileSync(locationsPath, JSON.stringify(householdLocations, null, 2))
+console.log(`✓ Written: ${locationsPath}`)
 console.log(`  HF_Summary rows:          ${hfSummary.length}`)
 console.log(`  User_Activity rows:        ${userActivity.length}`)
 console.log(`  Household_Locations rows:  ${householdLocations.length}`)

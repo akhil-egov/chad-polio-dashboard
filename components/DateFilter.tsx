@@ -2,21 +2,32 @@
 import { useDashboard } from '@/lib/dashboard-context'
 import { Button } from '@/components/ui/button'
 
-const DATES = [
-  { label: 'Jun 3', value: '2026-06-03' },
-  { label: 'Jun 4', value: '2026-06-04' },
-  { label: 'Jun 5 +Vacc', value: '2026-06-05' },
-  { label: 'Jun 6 +Vacc', value: '2026-06-06' },
-  { label: 'Jun 7 +Vacc', value: '2026-06-07' },
-]
+function formatLabel(isoDate: string, hasVacc: boolean) {
+  const d = new Date(isoDate + 'T00:00:00')
+  const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return hasVacc ? `${label} +Vacc` : label
+}
 
 export function DateFilter() {
-  const { selectedDate, setSelectedDate } = useDashboard()
+  const { data, selectedDate, setSelectedDate } = useDashboard()
+
+  const dates = data
+    ? Array.from(
+        data.hfSummary.reduce((map, row) => {
+          const prev = map.get(row.date) ?? false
+          map.set(row.date, prev || row.total_vaccinated > 0)
+          return map
+        }, new Map<string, boolean>())
+      )
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, hasVacc]) => ({ value: date, label: formatLabel(date, hasVacc) }))
+    : []
+
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <span className="text-sm font-medium text-gray-500">Day:</span>
       <Button variant={!selectedDate ? 'default' : 'outline'} size="sm" onClick={() => setSelectedDate(null)}>All</Button>
-      {DATES.map(d => (
+      {dates.map(d => (
         <Button key={d.value} variant={selectedDate === d.value ? 'default' : 'outline'} size="sm" onClick={() => setSelectedDate(d.value)}>
           {d.label}
         </Button>

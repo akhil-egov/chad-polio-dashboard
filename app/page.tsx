@@ -11,7 +11,7 @@ import { useDashboard } from '@/lib/dashboard-context'
 const CampaignMap = dynamic(() => import('@/components/CampaignMap').then(m => m.CampaignMap), { ssr: false })
 
 export default function Home() {
-  const { isLoading, error } = useDashboard()
+  const { isLoading, error, data, loadLocations } = useDashboard()
 
   if (isLoading) {
     return (
@@ -34,12 +34,19 @@ export default function Home() {
       <div className="max-w-7xl mx-auto space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Chad Polio Campaign — War Room</h1>
-          <p className="text-sm text-gray-500">N&apos;Djamena · Enumeration Jun 3–7 · Vaccination Jun 5–7</p>
+          <p className="text-sm text-gray-500">
+            N&apos;Djamena · Enumeration Jun 3–7 · Vaccination Jun 5–7
+            {data?.generated_at && (
+              <span className="ml-3 text-gray-400">
+                · Data as of {new Date(data.generated_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+              </span>
+            )}
+          </p>
         </div>
 
         <AlertBar />
 
-        <Tabs defaultValue="overview">
+        <Tabs defaultValue="overview" onValueChange={v => { if (v === 'map') loadLocations() }}>
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="map">Map</TabsTrigger>

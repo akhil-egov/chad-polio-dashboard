@@ -12,16 +12,17 @@ function dotColors(status: DotStatus) {
 }
 
 export function CampaignMap() {
-  const { data, selectedDate } = useDashboard()
-  if (!data) return (
-    <div className="h-[420px] bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">
-      Upload data to view map
+  const { locations, locationsLoading, selectedDate } = useDashboard()
+
+  if (locationsLoading) return (
+    <div className="h-[420px] bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-sm">
+      Loading map data…
     </div>
   )
 
   const locs = selectedDate
-    ? data.householdLocations.filter(l => l.date === selectedDate)
-    : data.householdLocations
+    ? locations.filter(l => l.date === selectedDate)
+    : locations
 
   return (
     <MapContainer center={[12.1048, 15.0445]} zoom={12} className="h-[420px] w-full rounded-lg z-0" style={{ zIndex: 0 }}>

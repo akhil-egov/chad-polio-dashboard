@@ -14,9 +14,7 @@ export function AlertBar() {
 
   if (!data || dismissed) return null
 
-  // "now" = latest timestamp in the dataset
-  const allTimes = data.userActivity.map(r => parseSync(r.last_sync_time).getTime())
-  const nowMs = Math.max(...allTimes)
+  const nowMs = Date.now()
 
   // Per user: most recent sync
   const latestByUser = new Map<string, number>()
