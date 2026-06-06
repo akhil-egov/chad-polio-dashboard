@@ -52,6 +52,9 @@ export interface GpsRow {
   facility_name: string
   facility_id: string
   vaccinated: boolean
+  settlement_type: string | null
+  user_name: string | null
+  member_count: number | null
 }
 
 export interface MicroplanRow {

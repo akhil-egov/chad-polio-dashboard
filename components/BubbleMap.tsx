@@ -8,8 +8,13 @@ import 'leaflet/dist/leaflet.css'
 import { IconArrowLeft } from '@tabler/icons-react'
 import { useDashboard } from '@/lib/dashboard-context'
 import { DateFilter } from '@/components/DateFilter'
+import type { GpsRow } from '@/lib/types'
 
 const ZOOM_THRESHOLD = 14
+
+const SETTLEMENT_LABEL: Record<string, string> = {
+  URBAN: 'Urban', RURAL: 'Rural', SLUMS: 'Slums', NOMADS_PASTORALISTS: 'Nomadic',
+}
 
 // ── Coverage thresholds ──────────────────────────────────────────────────────
 function coverageInfo(pct: number) {
@@ -71,6 +76,38 @@ function FlyTo({ target }: { target: { pos: [number, number]; id: number } | nul
   return null
 }
 
+type HoveredDot = { loc: GpsRow; x: number; y: number }
+
+function DotHoverTracker({ locs, zoom, onHover }: {
+  locs: GpsRow[]
+  zoom: number
+  onHover: (dot: HoveredDot | null) => void
+}) {
+  const map = useMap()
+  useMapEvents({
+    mousemove(e) {
+      if (zoom < ZOOM_THRESHOLD) { onHover(null); return }
+      const mp = e.containerPoint
+      let nearest: GpsRow | null = null
+      let minDist = 14 // pixel hit radius
+      for (const loc of locs) {
+        const pt = map.latLngToContainerPoint([loc.lat, loc.lng])
+        const d = Math.sqrt((pt.x - mp.x) ** 2 + (pt.y - mp.y) ** 2)
+        if (d < minDist) { minDist = d; nearest = loc }
+      }
+      if (nearest) {
+        const pt = map.latLngToContainerPoint([nearest.lat, nearest.lng])
+        onHover({ loc: nearest, x: pt.x, y: pt.y })
+      } else {
+        onHover(null)
+      }
+    },
+    mouseout() { onHover(null) },
+    dragstart() { onHover(null) },
+  })
+  return null
+}
+
 // ── Main component ───────────────────────────────────────────────────────────
 export function BubbleMap({ onBack }: { onBack: () => void }) {
   const { data, selectedDate, mode, t } = useDashboard()
@@ -84,13 +121,13 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
   const [adm1, setAdm1] = useState<GeoJsonObject | null>(null)
   const [adm2, setAdm2] = useState<GeoJsonObject | null>(null)
   const [satOn, setSatOn] = useState(false)
+  const [hoveredDot, setHoveredDot] = useState<HoveredDot | null>(null)
 
   useEffect(() => {
     fetch('/adm1.geojson').then(r => r.json()).then(setAdm1).catch(() => null)
     fetch('/adm2.geojson').then(r => r.json()).then(setAdm2).catch(() => null)
   }, [])
 
-  // Centroids computed from gps points
   const centroids = useMemo(() => {
     if (!data) return new Map<string, [number, number]>()
     const acc = new Map<string, { latSum: number; lngSum: number; n: number }>()
@@ -104,7 +141,6 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
     return out
   }, [data])
 
-  // Facility summaries from enumeration sheet
   const facilities = useMemo(() => {
     if (!data) return []
     return data.enumeration.map(r => {
@@ -270,27 +306,74 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
               const fill = loc.vaccinated ? '#22c55e' : (isPublic ? '#009FDB' : '#ef4444')
               const stroke = loc.vaccinated ? '#16a34a' : (isPublic ? '#0077a8' : '#dc2626')
               return (
-                <CircleMarker key={i} center={[loc.lat, loc.lng]} radius={4}
+                <CircleMarker key={i} center={[loc.lat, loc.lng]} radius={6}
                   renderer={canvasRenderer}
-                  pathOptions={{ color: stroke, fillColor: fill, fillOpacity: 0.8, weight: 1 }}>
-                  <Popup>
-                    <div style={{ minWidth: 150, fontFamily: 'system-ui, sans-serif' }}>
-                      <div style={{ fontWeight: 700, fontSize: 12, color: '#003F72', marginBottom: 5 }}>{loc.facility_name}</div>
-                      <div style={{ fontSize: 11, color: '#64748b', marginBottom: 2 }}>
-                        {loc.record_type === 'household' ? 'Household' : 'Vaccination'} · {loc.record_id.slice(-8)}
-                      </div>
-                      <div style={{ fontSize: 10, color: '#94a3b8' }}>
-                        {loc.lat.toFixed(4)}°N &nbsp;{loc.lng.toFixed(4)}°E
-                      </div>
-                    </div>
-                  </Popup>
-                </CircleMarker>
+                  pathOptions={{ color: stroke, fillColor: fill, fillOpacity: 0.8, weight: 1 }}
+                />
               )
             })}
 
+            <DotHoverTracker locs={visibleLocs} zoom={zoom} onHover={setHoveredDot} />
             <ZoomWatcher onZoom={setZoom} />
             <FlyTo target={flyTarget} />
           </MapContainer>
+
+          {/* Custom dot hover tooltip */}
+          {hoveredDot && zoom >= ZOOM_THRESHOLD && (
+            <div style={{
+              position: 'absolute',
+              left: hoveredDot.x,
+              top: hoveredDot.y,
+              transform: 'translate(-50%, calc(-100% - 10px))',
+              zIndex: 900,
+              pointerEvents: 'none',
+              background: 'white',
+              border: '1px solid #e2e8f0',
+              borderRadius: 6,
+              padding: '7px 10px',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.12)',
+              fontFamily: 'system-ui, sans-serif',
+              minWidth: 140,
+              whiteSpace: 'nowrap',
+            }}>
+              {isPublic ? (
+                <>
+                  <div style={{ fontWeight: 700, fontSize: 12, color: '#003F72', marginBottom: 5 }}>
+                    {hoveredDot.loc.facility_name}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    {hoveredDot.loc.settlement_type && (
+                      <span style={{ fontSize: 10, fontWeight: 700, background: '#e0f2fe', color: '#0369a1', borderRadius: 4, padding: '2px 6px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                        {SETTLEMENT_LABEL[hoveredDot.loc.settlement_type] ?? hoveredDot.loc.settlement_type}
+                      </span>
+                    )}
+                    {hoveredDot.loc.member_count != null && (
+                      <span style={{ fontSize: 10, color: '#64748b' }}>{hoveredDot.loc.member_count} members</span>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontWeight: 700, fontSize: 12, color: '#003F72', marginBottom: 4 }}>
+                    {hoveredDot.loc.facility_name}
+                  </div>
+                  {hoveredDot.loc.user_name && (
+                    <div style={{ fontSize: 11, color: '#009FDB', fontWeight: 600, marginBottom: 3 }}>
+                      {hoveredDot.loc.user_name}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 8, fontSize: 10, color: '#64748b' }}>
+                    {hoveredDot.loc.settlement_type && (
+                      <span>{SETTLEMENT_LABEL[hoveredDot.loc.settlement_type] ?? hoveredDot.loc.settlement_type}</span>
+                    )}
+                    {hoveredDot.loc.member_count != null && (
+                      <span>{hoveredDot.loc.member_count} members</span>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Stats bar */}
           <div className="absolute top-3 right-14 z-[800] flex gap-1.5 pointer-events-none">
