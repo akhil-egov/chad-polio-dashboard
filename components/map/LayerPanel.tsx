@@ -48,7 +48,7 @@ export function LayerPanel({
       style={{ minWidth: 196, maxHeight: 420, overflowY: 'auto' }}
     >
       <LayerRow
-        color={isPublic ? '#009FDB' : '#ef4444'}
+        color={isPublic ? '#009FDB' : '#64748b'}
         label="Households"
         count={data?.gps.length}
         active={showHouseholds}
