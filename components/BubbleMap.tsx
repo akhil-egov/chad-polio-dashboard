@@ -149,14 +149,13 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
         { color: '#C62828', label: '< 20% — Critical' },
       ]
 
+  const hasVaccinatedDots = useMemo(() => data?.gps.some(l => l.vaccinated) ?? false, [data])
+
   const DOT_LEGEND = isPublic
-    ? [
-        { color: '#22c55e', label: t('Vaccinated') },
-        { color: '#009FDB', label: t('Children Enumerated') },
-      ]
+    ? [{ color: '#009FDB', label: 'Household' }]
     : [
-        { color: '#22c55e', label: t('Vaccinated') },
-        { color: '#ef4444', label: 'Enumerated only' },
+        ...(hasVaccinatedDots ? [{ color: '#22c55e', label: t('Vaccinated') }] : []),
+        { color: '#ef4444', label: 'Household' },
       ]
 
   return (
@@ -254,8 +253,13 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
                   eventHandlers={{ click: () => handleSelect(fac.name) }}
                 >
                   <Popup>
-                    <strong>{fac.name}</strong><br />
-                    {fac.records.toLocaleString()} records · {fac.covPct.toFixed(1)}% coverage
+                    <div style={{ minWidth: 160, fontFamily: 'system-ui, sans-serif' }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: '#003F72', marginBottom: 6 }}>{fac.name}</div>
+                      <div style={{ fontSize: 11, color: '#475569', marginBottom: 2 }}>
+                        <b style={{ color: '#009FDB' }}>{fac.covPct.toFixed(1)}%</b> coverage
+                      </div>
+                      <div style={{ fontSize: 11, color: '#64748b' }}>{fac.records.toLocaleString()} households</div>
+                    </div>
                   </Popup>
                 </Marker>
               )
@@ -269,7 +273,17 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
                 <CircleMarker key={i} center={[loc.lat, loc.lng]} radius={4}
                   renderer={canvasRenderer}
                   pathOptions={{ color: stroke, fillColor: fill, fillOpacity: 0.8, weight: 1 }}>
-                  <Popup>{loc.facility_name} · {loc.record_type}</Popup>
+                  <Popup>
+                    <div style={{ minWidth: 150, fontFamily: 'system-ui, sans-serif' }}>
+                      <div style={{ fontWeight: 700, fontSize: 12, color: '#003F72', marginBottom: 5 }}>{loc.facility_name}</div>
+                      <div style={{ fontSize: 11, color: '#64748b', marginBottom: 2 }}>
+                        {loc.record_type === 'household' ? 'Household' : 'Vaccination'} · {loc.record_id.slice(-8)}
+                      </div>
+                      <div style={{ fontSize: 10, color: '#94a3b8' }}>
+                        {loc.lat.toFixed(4)}°N &nbsp;{loc.lng.toFixed(4)}°E
+                      </div>
+                    </div>
+                  </Popup>
                 </CircleMarker>
               )
             })}
