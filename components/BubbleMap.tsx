@@ -68,7 +68,7 @@ function FlyTo({ target }: { target: { pos: [number, number]; id: number } | nul
 
 // ── Main component ───────────────────────────────────────────────────────────
 export function BubbleMap({ onBack }: { onBack: () => void }) {
-  const { data, locations, locationsLoading, loadLocations, selectedDate } = useDashboard()
+  const { data, selectedDate } = useDashboard()
 
   const [zoom, setZoom] = useState(12)
   const [selectedFac, setSelectedFac] = useState<string | null>(null)
@@ -78,52 +78,48 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
   const [satOn, setSatOn] = useState(false)
 
   useEffect(() => {
-    loadLocations()
     fetch('/adm1.geojson').then(r => r.json()).then(setAdm1).catch(() => null)
     fetch('/adm2.geojson').then(r => r.json()).then(setAdm2).catch(() => null)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
-  // Centroids computed from household points
+  // Centroids computed from gps points
   const centroids = useMemo(() => {
+    if (!data) return new Map<string, [number, number]>()
     const acc = new Map<string, { latSum: number; lngSum: number; n: number }>()
-    for (const loc of locations) {
-      if (!acc.has(loc.health_facility)) acc.set(loc.health_facility, { latSum: 0, lngSum: 0, n: 0 })
-      const c = acc.get(loc.health_facility)!
-      c.latSum += loc.latitude; c.lngSum += loc.longitude; c.n++
+    for (const loc of data.gps) {
+      if (!acc.has(loc.facility_name)) acc.set(loc.facility_name, { latSum: 0, lngSum: 0, n: 0 })
+      const c = acc.get(loc.facility_name)!
+      c.latSum += loc.lat; c.lngSum += loc.lng; c.n++
     }
     const out = new Map<string, [number, number]>()
     for (const [fac, { latSum, lngSum, n }] of acc) out.set(fac, [latSum / n, lngSum / n])
     return out
-  }, [locations])
+  }, [data])
 
-  // Facility summaries sorted worst coverage first
+  // Facility summaries from enumeration sheet
   const facilities = useMemo(() => {
     if (!data) return []
-    const acc = new Map<string, { vacc: number; eligible: number; records: number }>()
-    for (const row of data.hfSummary) {
-      if (selectedDate && row.date !== selectedDate) continue
-      if (!acc.has(row.health_facility)) acc.set(row.health_facility, { vacc: 0, eligible: 0, records: 0 })
-      const s = acc.get(row.health_facility)!
-      s.vacc += row.total_vaccinated
-      s.eligible += row.eligible_children_enumerated
-      s.records += row.total_enumeration_records
-    }
-    return Array.from(acc.entries())
-      .map(([name, { vacc, eligible, records }]) => {
-        const covPct = eligible > 0 ? (vacc / eligible) * 100 : 0
-        const { color } = coverageInfo(covPct)
-        return { name, records, covPct, color, abbrev: name.replace(/^CS\s+/i, '') }
-      })
-      .sort((a, b) => a.covPct - b.covPct)
-  }, [data, selectedDate])
+    return data.enumeration.map(r => {
+      const covPct = r.pct_complete
+      const { color } = coverageInfo(covPct)
+      return {
+        name: r.facility_name,
+        records: r.households_registered,
+        covPct,
+        color,
+        abbrev: r.facility_name.replace(/^CS\s+/i, ''),
+      }
+    }).sort((a, b) => a.covPct - b.covPct)
+  }, [data])
 
   const visibleBubbles = selectedFac ? facilities.filter(f => f.name === selectedFac) : facilities
 
   const visibleLocs = useMemo(() => {
-    let locs = selectedDate ? locations.filter(l => l.date === selectedDate) : locations
-    if (selectedFac) locs = locs.filter(l => l.health_facility === selectedFac)
+    if (!data) return []
+    let locs = data.gps
+    if (selectedFac) locs = locs.filter(l => l.facility_name === selectedFac)
     return locs
-  }, [locations, selectedDate, selectedFac])
+  }, [data, selectedFac])
 
   function handleSelect(name: string) {
     setSelectedFac(name)
@@ -145,7 +141,6 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
 
   const DOT_LEGEND = [
     { color: '#22c55e', label: 'Vaccinated' },
-    { color: '#f59e0b', label: 'Revisit' },
     { color: '#ef4444', label: 'Enumerated only' },
   ]
 
@@ -167,9 +162,9 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
           <DateFilter hideLabel />
           <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 whitespace-nowrap">
             <span className="inline-block w-[7px] h-[7px] rounded-full bg-green-700 mr-1.5" />
-            {data?.generated_at
-              ? new Date(data.generated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-              : '—'} · {locations.length.toLocaleString()} records
+            {data?._metadata.run_timestamp
+              ? new Date(data._metadata.run_timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+              : '—'} · {data?.gps.length.toLocaleString()} records
           </div>
         </div>
       </div>
@@ -220,12 +215,6 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
 
         {/* ── Map ── */}
         <div className="flex-1 relative min-w-0">
-          {locationsLoading && (
-            <div className="absolute inset-0 z-[900] flex items-center justify-center bg-white/70">
-              <p className="text-gray-500 text-sm">Loading household data…</p>
-            </div>
-          )}
-
           <MapContainer center={[12.105, 15.07]} zoom={12} className="absolute inset-0" style={{ zIndex: 0 }}>
             <TileLayer
               key={satOn ? 'sat' : 'osm'}
@@ -259,12 +248,12 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
 
             {/* Dots — shown when zoomed in */}
             {zoom >= ZOOM_THRESHOLD && visibleLocs.map((loc, i) => {
-              const fill = loc.status === 'vaccinated' ? '#22c55e' : loc.status === 'revisit' ? '#f59e0b' : '#ef4444'
-              const stroke = loc.status === 'vaccinated' ? '#16a34a' : loc.status === 'revisit' ? '#d97706' : '#dc2626'
+              const fill = loc.vaccinated ? '#22c55e' : '#ef4444'
+              const stroke = loc.vaccinated ? '#16a34a' : '#dc2626'
               return (
-                <CircleMarker key={i} center={[loc.latitude, loc.longitude]} radius={4}
+                <CircleMarker key={i} center={[loc.lat, loc.lng]} radius={4}
                   pathOptions={{ color: stroke, fillColor: fill, fillOpacity: 0.8, weight: 1 }}>
-                  <Popup>{loc.health_facility} · {loc.user_name} · {loc.status}</Popup>
+                  <Popup>{loc.facility_name} · {loc.record_type}</Popup>
                 </CircleMarker>
               )
             })}
@@ -276,7 +265,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
           {/* Stats bar */}
           <div className="absolute top-3 right-14 z-[800] flex gap-1.5 pointer-events-none">
             <div className="bg-white/95 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-600 shadow-sm whitespace-nowrap">
-              <b>{visibleLocs.length.toLocaleString()}</b> households visible
+              <b>{visibleLocs.length.toLocaleString()}</b> records visible
             </div>
           </div>
 
@@ -293,7 +282,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
           {/* Zoom hint */}
           {zoom < ZOOM_THRESHOLD && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[800] bg-white/93 border border-gray-200 rounded-full px-4 py-1 text-xs text-gray-500 shadow pointer-events-none whitespace-nowrap">
-              Zoom in to see individual households
+              Zoom in to see individual records
             </div>
           )}
 

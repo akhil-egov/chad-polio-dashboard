@@ -13,10 +13,10 @@ export function DateFilter({ hideLabel }: { hideLabel?: boolean } = {}) {
 
   const dates = data
     ? Array.from(
-        data.dailySummary.reduce((map, row) => {
+        data.coverage.reduce((map, row) => {
           if (!row.date) return map
           const prev = map.get(row.date) ?? false
-          map.set(row.date, prev || row.total_vaccinated > 0)
+          map.set(row.date, prev || row.vaccinated > 0)
           return map
         }, new Map<string, boolean>())
       )

@@ -1,54 +1,109 @@
-export interface HFSummaryRow {
-  health_facility: string
-  target_enumeration: number
-  target_vaccination: number
-  total_enumeration_records: number
-  eligible_children_enumerated: number
-  total_vaccinated: number
-  missed_children: number
-  guest_member_count: number
-  absent_household_count: number
-  total_users: number
-  active_users: number
-  stock_issued: number
-  stock_returned: number
-  date: string
+export interface Metadata {
+  run_timestamp: string
+  campaign_id: string
+  country: string
+  records_per_sheet: string
+  extraction_duration_s: number
 }
 
-export interface UserActivityRow {
-  health_facility: string
-  user_name: string
+export interface CoverageRow {
+  facility_name: string
+  facility_id: string
   date: string
-  enumeration_records: number
+  vaccinated: number
+  target: number
+  cumulative_vaccinated: number
+  pct_complete: number
+}
+
+export interface ActivityRow {
+  user_id: string
+  user_name: string
+  facility_name: string
+  facility_id: string
+  date: string
+  task_count: number
+  last_sync: string
+  is_inactive: boolean
+}
+
+export interface EnumerationRow {
+  facility_name: string
+  facility_id: string
+  households_registered: number
+  eligible_children: number
+  vaccinated_children: number
+  pct_complete: number
+}
+
+export interface StockRow {
+  facility_name: string
+  facility_id: string
+  vials_issued: number
+  vials_returned: number
+  vials_used: number
+}
+
+export interface GpsRow {
+  record_id: string
+  record_type: 'household' | 'task'
+  lat: number
+  lng: number
+  facility_name: string
+  facility_id: string
+  vaccinated: boolean
+}
+
+export interface MicroplanRow {
+  facility_name: string
+  facility_id: string
+  microplan_target: number
+  achieved: number
+  pct_complete: number
+  gap: number
+}
+
+export interface SettlementRow {
+  settlement_type: string
+  household_count: number
   eligible_children: number
   vaccinated: number
-  last_sync_time: string
+  pct_complete: number
 }
 
-export interface HouseholdLocationRow {
-  health_facility: string
+export interface DemographicsRow {
+  age_group: string
+  gender: string
+  vaccinated_count: number
+}
+
+export interface InactiveUserRow {
+  user_id: string
   user_name: string
-  household_id: string
-  latitude: number
-  longitude: number
-  status: 'enumerated' | 'vaccinated' | 'revisit'
-  date: string
+  facility_name: string
+  facility_id: string
+  last_sync: string | null
+  hours_since_sync: number
 }
 
-export interface DailySummaryRow {
-  date: string
-  total_enumeration_records: number
-  total_eligible_children: number
-  total_vaccinated: number
-  total_missed: number
-  total_stock_issued: number
-  total_stock_returned: number
+export interface RefusalRow {
+  facility_name: string
+  facility_id: string
+  reason_code: string
+  reason_label: string
+  count: number
 }
 
 export interface DashboardData {
-  generated_at: string
-  hfSummary: HFSummaryRow[]
-  userActivity: UserActivityRow[]
-  householdLocations: HouseholdLocationRow[]
-  dailySummary: DailySummaryRow[]
+  _metadata: Metadata
+  coverage: CoverageRow[]
+  activity: ActivityRow[]
+  enumeration: EnumerationRow[]
+  stock: StockRow[]
+  gps: GpsRow[]
+  microplan: MicroplanRow[]
+  settlement: SettlementRow[]
+  demographics: DemographicsRow[]
+  inactive_users: InactiveUserRow[]
+  refusals: RefusalRow[]
 }

@@ -3,44 +3,18 @@ import { useState } from 'react'
 import { IconAlertTriangle, IconX } from '@tabler/icons-react'
 import { useDashboard } from '@/lib/dashboard-context'
 
-function parseSync(s: string): Date {
-  return new Date(s.replace(' ', 'T'))
-}
-
 export function AlertBar() {
   const { data } = useDashboard()
   const [dismissed, setDismissed] = useState(false)
 
-  if (!data || dismissed) return null
+  if (!data || dismissed || data.inactive_users.length === 0) return null
 
-  const nowMs = Date.now()
-  const SIX_HOURS = 6 * 60 * 60 * 1000
-
-  const latestByUser = new Map<string, number>()
-  for (const r of data.userActivity) {
-    const t = parseSync(r.last_sync_time).getTime()
-    const key = `${r.health_facility}||${r.user_name}`
-    if (!latestByUser.has(key) || t > latestByUser.get(key)!) {
-      latestByUser.set(key, t)
-    }
-  }
-
-  type Silent = { hf: string; user: string; hoursAgo: number }
-  const silent: Silent[] = []
-  for (const [key, t] of latestByUser) {
-    const hoursAgo = (nowMs - t) / (1000 * 60 * 60)
-    if (hoursAgo > 6) {
-      const [hf, user] = key.split('||')
-      silent.push({ hf, user, hoursAgo: Math.floor(hoursAgo) })
-    }
-  }
-
-  if (silent.length === 0) return null
-
-  const byHF = new Map<string, Silent[]>()
-  for (const s of silent) {
-    if (!byHF.has(s.hf)) byHF.set(s.hf, [])
-    byHF.get(s.hf)!.push(s)
+  const byHF = new Map<string, { users: string[]; maxHours: number }>()
+  for (const r of data.inactive_users) {
+    if (!byHF.has(r.facility_name)) byHF.set(r.facility_name, { users: [], maxHours: 0 })
+    const entry = byHF.get(r.facility_name)!
+    entry.users.push(r.user_name)
+    entry.maxHours = Math.max(entry.maxHours, Math.floor(r.hours_since_sync))
   }
 
   return (
@@ -50,22 +24,15 @@ export function AlertBar() {
         <span className="font-condensed text-[10px] font-bold tracking-[0.2em] uppercase text-red-600 mr-2">
           Silent Teams (&gt;6h no sync)
         </span>
-        {Array.from(byHF.entries()).map(([hf, members], i) => {
-          const maxHours = Math.max(...members.map(m => m.hoursAgo))
-          const names = members.map(m => m.user).join(', ')
-          return (
-            <span key={hf}>
-              {i > 0 && <span className="text-red-300 mx-1">·</span>}
-              <strong className="font-semibold">{hf}</strong>
-              {' '}({names}) — {maxHours}h ago
-            </span>
-          )
-        })}
+        {Array.from(byHF.entries()).map(([hf, { users, maxHours }], i) => (
+          <span key={hf}>
+            {i > 0 && <span className="text-red-300 mx-1">·</span>}
+            <strong className="font-semibold">{hf}</strong>
+            {' '}({users.join(', ')}) — {maxHours}h ago
+          </span>
+        ))}
       </div>
-      <button
-        onClick={() => setDismissed(true)}
-        className="shrink-0 text-red-400 hover:text-red-600 transition-colors"
-      >
+      <button onClick={() => setDismissed(true)} className="shrink-0 text-red-400 hover:text-red-600 transition-colors">
         <IconX size={14} />
       </button>
     </div>

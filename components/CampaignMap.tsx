@@ -6,12 +6,9 @@ import type { Layer, PathOptions } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useDashboard } from '@/lib/dashboard-context'
 
-type DotStatus = 'vaccinated' | 'revisit' | 'enumerated'
-
-function dotColors(status: DotStatus) {
-  if (status === 'vaccinated') return { color: '#16a34a', fillColor: '#22c55e' }
-  if (status === 'revisit')    return { color: '#d97706', fillColor: '#f59e0b' }
-  return                              { color: '#dc2626', fillColor: '#ef4444' }
+function dotColors(vaccinated: boolean) {
+  if (vaccinated) return { color: '#16a34a', fillColor: '#22c55e' }
+  return { color: '#dc2626', fillColor: '#ef4444' }
 }
 
 const ADM1_STYLE: PathOptions = { color: '#475569', weight: 1.5, fillOpacity: 0, dashArray: '6 3' }
@@ -42,7 +39,7 @@ function onEachADM2(feature: GeoJSON.Feature, layer: Layer) {
 }
 
 export function CampaignMap() {
-  const { locations, locationsLoading, selectedDate } = useDashboard()
+  const { data } = useDashboard()
   const [adm1, setAdm1] = useState<GeoJsonObject | null>(null)
   const [adm2, setAdm2] = useState<GeoJsonObject | null>(null)
 
@@ -51,15 +48,13 @@ export function CampaignMap() {
     fetch('/adm2.geojson').then(r => r.json()).then(setAdm2).catch(() => null)
   }, [])
 
-  if (locationsLoading) return (
+  if (!data) return (
     <div className="h-[520px] bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-sm">
       Loading map data…
     </div>
   )
 
-  const locs = selectedDate
-    ? locations.filter(l => l.date === selectedDate)
-    : locations
+  const locs = data.gps
 
   return (
     <MapContainer center={[12.1048, 15.0445]} zoom={12} className="h-[520px] w-full rounded-lg z-0" style={{ zIndex: 0 }}>
@@ -73,16 +68,14 @@ export function CampaignMap() {
       )}
 
       {locs.map((loc, i) => {
-        const status = (loc.status as DotStatus) ?? 'enumerated'
-        const { color, fillColor } = dotColors(status)
+        const { color, fillColor } = dotColors(loc.vaccinated)
         return (
-          <CircleMarker key={i} center={[loc.latitude, loc.longitude]} radius={5}
+          <CircleMarker key={i} center={[loc.lat, loc.lng]} radius={5}
             pathOptions={{ color, fillColor, fillOpacity: 0.7, weight: 1 }}>
             <Popup>
-              <strong>{loc.health_facility}</strong><br />
-              User: {loc.user_name}<br />
-              Status: {loc.status}<br />
-              Date: {loc.date}
+              <strong>{loc.facility_name}</strong><br />
+              Type: {loc.record_type}<br />
+              Vaccinated: {loc.vaccinated ? 'Yes' : 'No'}
             </Popup>
           </CircleMarker>
         )
