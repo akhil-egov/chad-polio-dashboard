@@ -2,12 +2,15 @@
 import { useState } from 'react'
 import { IconChevronUp, IconChevronDown } from '@tabler/icons-react'
 import { useDashboard } from '@/lib/dashboard-context'
+import { getVisibility, type Visibility } from '@/lib/visibility'
 
 type SortKey = 'pct_complete' | 'gap' | 'achieved' | 'microplan_target'
 
-function ProgressBar({ pct, isPublic }: { pct: number; isPublic: boolean }) {
-  const color = isPublic ? '#009FDB' : (pct >= 80 ? '#16a34a' : pct >= 50 ? '#ca8a04' : '#dc2626')
-  const textColor = isPublic ? 'text-slate-700' : (pct >= 80 ? 'text-green-700' : pct >= 50 ? 'text-amber-600' : 'text-red-600')
+function ProgressBar({ pct, vis }: { pct: number; vis: Visibility }) {
+  const color = vis.progressBarColor(pct)
+  const textColor = vis.showStatusBadges
+    ? (pct >= 80 ? 'text-green-700' : pct >= 50 ? 'text-amber-600' : 'text-red-600')
+    : 'text-slate-700'
   return (
     <div className="flex items-center gap-2.5">
       <div className="w-24 bg-slate-200 rounded-full h-[4px]">
@@ -42,7 +45,7 @@ export function MicroplanTable() {
   const [asc, setAsc] = useState(false)
   if (!data) return null
 
-  const isPublic = mode === 'public'
+  const vis = getVisibility(mode)
 
   const rows = [...data.microplan].sort((a, b) =>
     asc ? (a[sortKey] as number) - (b[sortKey] as number) : (b[sortKey] as number) - (a[sortKey] as number)
@@ -79,7 +82,7 @@ export function MicroplanTable() {
         </div>
         <div>
           <p className="font-condensed text-[10px] font-bold tracking-[0.2em] uppercase text-slate-500">{t('Gap')}</p>
-          <p className={`font-data text-[1.5rem] font-bold leading-none mt-1 ${isPublic ? 'text-slate-700' : 'text-red-600'}`}>
+          <p className={`font-data text-[1.5rem] font-bold leading-none mt-1 ${vis.gapTextClass}`}>
             {(totalTarget - totalAchieved).toLocaleString()}
           </p>
         </div>
@@ -102,7 +105,7 @@ export function MicroplanTable() {
               <th className={th} onClick={() => handleSort('achieved')}>{t('Achieved')} <SortIcon k="achieved" /></th>
               <th className={th} onClick={() => handleSort('pct_complete')}>{t('Progress')} <SortIcon k="pct_complete" /></th>
               <th className={th} onClick={() => handleSort('gap')}>{t('Gap')} <SortIcon k="gap" /></th>
-              {!isPublic && <th className={thStatic}>{t('Status')}</th>}
+              {vis.showStatusBadges && <th className={thStatic}>{t('Status')}</th>}
             </tr>
           </thead>
           <tbody>
@@ -114,13 +117,13 @@ export function MicroplanTable() {
                 </td>
                 <td className="px-4 py-3 font-data text-[13px] text-slate-600">{r.microplan_target.toLocaleString()}</td>
                 <td className="px-4 py-3 font-data text-[13px] font-semibold text-slate-800">{r.achieved.toLocaleString()}</td>
-                <td className="px-4 py-3"><ProgressBar pct={r.pct_complete} isPublic={isPublic} /></td>
+                <td className="px-4 py-3"><ProgressBar pct={r.pct_complete} vis={vis} /></td>
                 <td className="px-4 py-3">
-                  <span className={`font-data text-[13px] font-semibold ${isPublic ? 'text-slate-700' : (r.gap > 0 ? 'text-red-600' : 'text-green-600')}`}>
+                  <span className={`font-data text-[13px] font-semibold ${vis.showGapNumbers ? (r.gap > 0 ? 'text-red-600' : 'text-green-600') : 'text-slate-700'}`}>
                     {r.gap.toLocaleString()}
                   </span>
                 </td>
-                {!isPublic && <td className="px-4 py-3"><StatusBadge pct={r.pct_complete} t={t} /></td>}
+                {vis.showStatusBadges && <td className="px-4 py-3"><StatusBadge pct={r.pct_complete} t={t} /></td>}
               </tr>
             ))}
           </tbody>

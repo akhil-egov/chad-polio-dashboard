@@ -11,15 +11,9 @@ import { DateFilter } from '@/components/DateFilter'
 import { useMapState } from '@/lib/use-map-state'
 import type { AnyDot } from '@/lib/use-map-state'
 import { HouseholdCard, RefusalCard, ZeroDoseCard } from '@/components/map/HoverCards'
+import { getVisibility } from '@/lib/visibility'
 
 const ZOOM_THRESHOLD = 14
-
-// ── Coverage thresholds ──────────────────────────────────────────────────────
-function coverageInfo(pct: number) {
-  if (pct >= 70) return { color: '#2E7D32', label: '≥ 70% — On track' }
-  if (pct >= 40) return { color: '#F9A825', label: '≥ 40% — Active' }
-  return { color: '#C62828', label: '< 40% — Critical' }
-}
 
 // ── Bubble icon factory (cached) ─────────────────────────────────────────────
 const DEFAULT_CENTER: [number, number] = [12.105, 15.07]
@@ -123,7 +117,7 @@ const REFUSAL_LABEL: Record<string, string> = {
 // ── Main component ───────────────────────────────────────────────────────────
 export function BubbleMap({ onBack }: { onBack: () => void }) {
   const { data, mode, t } = useDashboard()
-  const isPublic = mode === 'public'
+  const vis = getVisibility(mode)
 
   const canvasRenderer = useMemo(() => L.canvas({ padding: 0.5 }), [])
 
@@ -184,17 +178,16 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
     const microplanByFac = new Map(data.microplan.map(r => [r.facility_name, r.microplan_target]))
     return data.enumeration.map(r => {
       const covPct = r.pct_complete
-      const { color } = coverageInfo(covPct)
       const target = microplanByFac.get(r.facility_name) ?? r.households_registered
       return {
         name: r.facility_name,
         records: target,
         covPct,
-        color: isPublic ? '#009FDB' : color,
+        color: vis.bubbleColor(covPct),
         abbrev: r.facility_name.replace(/^CS\s+/i, ''),
       }
     }).sort((a, b) => a.covPct - b.covPct)
-  }, [data, isPublic])
+  }, [data, mode])
 
   const visibleBubbles = selectedFac ? facilities.filter(f => f.name === selectedFac) : facilities
 
@@ -210,25 +203,25 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
     setFlyTarget({ pos: DEFAULT_CENTER, id: Date.now(), zoom: DEFAULT_ZOOM })
   }
 
-  const LEGEND_TIERS = isPublic
-    ? [{ color: '#009FDB', label: 'Health facility' }]
-    : [
+  const LEGEND_TIERS = vis.showStatusBadges
+    ? [
         { color: '#2E7D32', label: '≥ 70% — On track' },
         { color: '#F9A825', label: '≥ 40% — Active' },
         { color: '#C62828', label: '< 40% — Critical' },
       ]
+    : [{ color: '#009FDB', label: 'Health facility' }]
 
   const activeDotLegend = useMemo(() => {
     const items: { color: string; label: string }[] = []
-    if (showHouseholds && isPublic) items.push({ color: '#009FDB', label: 'Household' })
-    if (showHouseholds && !isPublic) {
+    if (showHouseholds && !vis.showStatusBadges) items.push({ color: '#009FDB', label: 'Household' })
+    if (showHouseholds && vis.showStatusBadges) {
       items.push({ color: '#22c55e', label: 'Household — vaccinated' })
       items.push({ color: '#64748b', label: 'Household — not yet' })
     }
     if (showRefusals) items.push({ color: '#C62828', label: `Refusal (${visibleRefusals.length})` })
     if (showZerodose) items.push({ color: '#F9A825', label: `Zero Dose (${visibleZerodose.length})` })
     return items
-  }, [showHouseholds, showRefusals, showZerodose, isPublic, visibleRefusals.length, visibleZerodose.length])
+  }, [showHouseholds, showRefusals, showZerodose, mode, visibleRefusals.length, visibleZerodose.length])
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" }}>
@@ -335,12 +328,10 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
             {/* Household dots — neutralised in public mode */}
             {zoom >= ZOOM_THRESHOLD && visibleHouseholds.map((loc, i) => {
               const vaccinated = (loc.vaccinated_count ?? 0) > 0
-              const fill = isPublic ? '#009FDB' : (vaccinated ? '#22c55e' : '#64748b')
-              const stroke = isPublic ? '#0077a8' : (vaccinated ? '#16a34a' : '#475569')
               return (
                 <CircleMarker key={`h-${i}`} center={[loc.lat, loc.lng]} radius={6}
                   renderer={canvasRenderer}
-                  pathOptions={{ color: stroke, fillColor: fill, fillOpacity: 0.8, weight: 1 }}
+                  pathOptions={{ color: vis.dotStroke(vaccinated), fillColor: vis.dotColor(vaccinated), fillOpacity: 0.8, weight: 1 }}
                 />
               )
             })}
@@ -385,9 +376,9 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
               maxWidth: 220,
               whiteSpace: 'nowrap',
             }}>
-              {hoveredDot.dot.type === 'household' && <HouseholdCard loc={hoveredDot.dot.row} isPublic={isPublic} />}
-              {hoveredDot.dot.type === 'refusal' && <RefusalCard loc={hoveredDot.dot.row} isPublic={isPublic} />}
-              {hoveredDot.dot.type === 'zerodose' && <ZeroDoseCard loc={hoveredDot.dot.row} isPublic={isPublic} />}
+              {hoveredDot.dot.type === 'household' && <HouseholdCard loc={hoveredDot.dot.row} showTeam={vis.showTeamInHover} />}
+              {hoveredDot.dot.type === 'refusal' && <RefusalCard loc={hoveredDot.dot.row} showTeam={vis.showTeamInHover} />}
+              {hoveredDot.dot.type === 'zerodose' && <ZeroDoseCard loc={hoveredDot.dot.row} showTeam={vis.showTeamInHover} />}
             </div>
           )}
 
@@ -397,7 +388,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
             style={{ minWidth: 196, maxHeight: 420, overflowY: 'auto' }}
           >
             <LayerRow
-              color={isPublic ? '#009FDB' : '#64748b'}
+              color={vis.dotColor(false)}
               label="Households"
               count={data?.gps.length}
               active={showHouseholds}

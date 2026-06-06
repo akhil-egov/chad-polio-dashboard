@@ -13,6 +13,7 @@ import { SettlementPanel } from '@/components/SettlementPanel'
 import { DemographicsPanel } from '@/components/DemographicsPanel'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useDashboard } from '@/lib/dashboard-context'
+import { getVisibility } from '@/lib/visibility'
 
 const BubbleMap = dynamic(() => import('@/components/BubbleMap').then(m => m.BubbleMap), { ssr: false })
 
@@ -47,6 +48,7 @@ function PillToggle<T extends string>({
 export default function Home() {
   const { isLoading, error, data, lang, setLang, mode, setMode, t } = useDashboard()
   const [activeTab, setActiveTab] = useState('overview')
+  const vis = getVisibility(mode)
 
   if (isLoading) {
     return (
@@ -154,7 +156,7 @@ export default function Home() {
             <TabsList className="min-w-max">
               <TabsTrigger value="overview">{t('Overview')}</TabsTrigger>
               <TabsTrigger value="map">{t('Map')}</TabsTrigger>
-              {mode === 'full' && (
+              {vis.showTeamActivity && (
                 <TabsTrigger value="team-activity">{t('Team Activity')}</TabsTrigger>
               )}
               <TabsTrigger value="microplan">{t('Microplan')}</TabsTrigger>

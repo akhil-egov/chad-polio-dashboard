@@ -2,12 +2,14 @@
 import { useState } from 'react'
 import { IconAlertTriangle, IconX } from '@tabler/icons-react'
 import { useDashboard } from '@/lib/dashboard-context'
+import { getVisibility } from '@/lib/visibility'
 
 export function AlertBar() {
   const { data, mode, t } = useDashboard()
   const [dismissed, setDismissed] = useState(false)
+  const vis = getVisibility(mode)
 
-  if (mode === 'public') return null
+  if (!vis.showAlertBar) return null
   if (!data || dismissed || data.inactive_users.length === 0) return null
 
   const byHF = new Map<string, { users: string[]; maxHours: number }>()

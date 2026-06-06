@@ -11,7 +11,7 @@ const REFUSAL_LABEL: Record<string, string> = {
   CONCERNS_ABOUT_COVID19: 'COVID-19 concerns',
 }
 
-export function HouseholdCard({ loc, isPublic }: { loc: GpsRow; isPublic: boolean }) {
+export function HouseholdCard({ loc, showTeam }: { loc: GpsRow; showTeam: boolean }) {
   const hasVaccData = loc.vaccinated_count != null
   const vaccinated = loc.vaccinated_count ?? 0
   return (
@@ -19,7 +19,7 @@ export function HouseholdCard({ loc, isPublic }: { loc: GpsRow; isPublic: boolea
       <div style={{ fontWeight: 700, fontSize: 12, color: '#003F72', marginBottom: 4 }}>
         {loc.facility_name}
       </div>
-      {!isPublic && loc.user_name && (
+      {showTeam && loc.user_name && (
         <div style={{ fontSize: 11, color: '#009FDB', fontWeight: 600, marginBottom: 4 }}>
           {loc.user_name}
         </div>
@@ -42,7 +42,7 @@ export function HouseholdCard({ loc, isPublic }: { loc: GpsRow; isPublic: boolea
   )
 }
 
-export function RefusalCard({ loc, isPublic }: { loc: GpsRefusalRow; isPublic: boolean }) {
+export function RefusalCard({ loc, showTeam }: { loc: GpsRefusalRow; showTeam: boolean }) {
   const reasonLabel = loc.reason_for_refusal
     ? (REFUSAL_LABEL[loc.reason_for_refusal] ?? loc.reason_for_refusal)
     : null
@@ -51,7 +51,7 @@ export function RefusalCard({ loc, isPublic }: { loc: GpsRefusalRow; isPublic: b
       <div style={{ fontWeight: 700, fontSize: 12, color: '#003F72', marginBottom: 4 }}>
         {loc.facility_name}
       </div>
-      {!isPublic && loc.user_name && (
+      {showTeam && loc.user_name && (
         <div style={{ fontSize: 11, color: '#009FDB', fontWeight: 600, marginBottom: 4 }}>
           {loc.user_name}
         </div>
@@ -74,7 +74,7 @@ export function RefusalCard({ loc, isPublic }: { loc: GpsRefusalRow; isPublic: b
   )
 }
 
-export function ZeroDoseCard({ loc, isPublic }: { loc: GpsZeroDoseRow; isPublic: boolean }) {
+export function ZeroDoseCard({ loc, showTeam }: { loc: GpsZeroDoseRow; showTeam: boolean }) {
   const vaccinated = loc.administration_status === 'ADMINISTRATION_SUCCESS'
   const ageLabel = loc.age_months != null ? `${Math.round(loc.age_months)} months` : null
   const genderLabel = loc.gender
@@ -86,7 +86,7 @@ export function ZeroDoseCard({ loc, isPublic }: { loc: GpsZeroDoseRow; isPublic:
       <div style={{ fontWeight: 700, fontSize: 12, color: '#003F72', marginBottom: 4 }}>
         {loc.facility_name}
       </div>
-      {!isPublic && loc.user_name && (
+      {showTeam && loc.user_name && (
         <div style={{ fontSize: 11, color: '#009FDB', fontWeight: 600, marginBottom: 4 }}>
           {loc.user_name}
         </div>

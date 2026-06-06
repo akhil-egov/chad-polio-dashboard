@@ -3,12 +3,15 @@ import { useState, useMemo } from 'react'
 import { IconAlertCircle, IconChevronUp, IconChevronDown } from '@tabler/icons-react'
 import { useDashboard } from '@/lib/dashboard-context'
 import { coverageByFacility, teamActivityByFacility } from '@/lib/campaign-queries'
+import { getVisibility, type Visibility } from '@/lib/visibility'
 
 type SortKey = 'pct_complete' | 'missed' | 'eligible' | 'reporting_pct'
 
-function CoverageBar({ pct, isPublic }: { pct: number; isPublic: boolean }) {
-  const barColor = isPublic ? '#009FDB' : (pct >= 80 ? '#16a34a' : pct >= 50 ? '#ca8a04' : '#dc2626')
-  const textColor = isPublic ? 'text-slate-700' : (pct >= 80 ? 'text-green-700' : pct >= 50 ? 'text-amber-600' : 'text-red-600')
+function CoverageBar({ pct, vis }: { pct: number; vis: Visibility }) {
+  const barColor = vis.barColor(pct)
+  const textColor = vis.showStatusBadges
+    ? (pct >= 80 ? 'text-green-700' : pct >= 50 ? 'text-amber-600' : 'text-red-600')
+    : 'text-slate-700'
   return (
     <div className="flex items-center gap-2.5">
       <div className="w-20 bg-slate-200 rounded-full h-[4px]">
@@ -53,7 +56,7 @@ export function HFTable() {
   const [asc, setAsc] = useState(false)
   if (!data) return null
 
-  const isPublic = mode === 'public'
+  const vis = getVisibility(mode)
 
   const refDate = useMemo(() => {
     const allActivityDates = data.activity.map(r => r.date)
@@ -120,7 +123,7 @@ export function HFTable() {
             <th className={thBase} onClick={() => handleSort('pct_complete')}>{t('Coverage %')} <SortIcon k="pct_complete" /></th>
             <th className={thBase} onClick={() => handleSort('missed')}>{t('Missed · Revisit')} <SortIcon k="missed" /></th>
             <th className={thBase} onClick={() => handleSort('reporting_pct')}>{t('Teams Reporting')} <SortIcon k="reporting_pct" /></th>
-            {!isPublic && <th className={thStatic}>{t('Status')}</th>}
+            {vis.showStatusBadges && <th className={thStatic}>{t('Status')}</th>}
           </tr>
         </thead>
         <tbody>
@@ -132,7 +135,7 @@ export function HFTable() {
                   <div className="font-medium text-[13px] text-slate-800">{r.facility_name}</div>
                   <div className="font-data text-[10px] text-slate-500 mt-0.5">{r.totalTeams} {t('teams')} · {r.eligible.toLocaleString()} {t('eligible')}</div>
                 </td>
-                <td className="px-4 py-3"><CoverageBar pct={r.pct_complete} isPublic={isPublic} /></td>
+                <td className="px-4 py-3"><CoverageBar pct={r.pct_complete} vis={vis} /></td>
                 <td className="px-4 py-3">
                   <span className={`font-data text-[13px] font-semibold ${r.missed > 0 ? 'text-slate-700' : 'text-slate-500'}`}>{r.missed.toLocaleString()}</span>
                 </td>
@@ -142,7 +145,7 @@ export function HFTable() {
                     {r.reportingTeams}/{r.totalTeams}
                   </span>
                 </td>
-                {!isPublic && <td className="px-4 py-3"><StatusBadge pct={r.pct_complete} t={t} /></td>}
+                {vis.showStatusBadges && <td className="px-4 py-3"><StatusBadge pct={r.pct_complete} t={t} /></td>}
               </tr>
             )
           })}

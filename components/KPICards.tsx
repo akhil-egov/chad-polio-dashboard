@@ -2,13 +2,14 @@
 import { useMemo } from 'react'
 import { useDashboard } from '@/lib/dashboard-context'
 import { campaignKPIs } from '@/lib/campaign-queries'
+import { getVisibility, type Visibility } from '@/lib/visibility'
 
 interface Delta { value: number; isGood: boolean }
 
-function DeltaChip({ delta, isPublic, t }: { delta: Delta | null; isPublic: boolean; t: (k: string) => string }) {
+function DeltaChip({ delta, vis, t }: { delta: Delta | null; vis: Visibility; t: (k: string) => string }) {
   if (!delta) return <span className="font-data text-[10px] text-slate-500 tracking-wide">— {t('no prior day')}</span>
   const sign = delta.value >= 0 ? '+' : ''
-  if (isPublic) {
+  if (!vis.showStatusBadges) {
     return (
       <span className="font-data text-[10px] font-medium tracking-wide text-slate-500">
         {sign}{delta.value.toLocaleString()} {t('vs yesterday')}
@@ -22,18 +23,18 @@ function DeltaChip({ delta, isPublic, t }: { delta: Delta | null; isPublic: bool
   )
 }
 
-function KPICard({ title, value, sub, accentColor, valueColor, delta, isPublic, t }: {
-  title: string; value: string; sub: string; accentColor: string; valueColor?: string; delta?: Delta | null; isPublic: boolean; t: (k: string) => string
+function KPICard({ title, value, sub, accentColor, valueColor, delta, vis, t }: {
+  title: string; value: string; sub: string; accentColor: string; valueColor?: string; delta?: Delta | null; vis: Visibility; t: (k: string) => string
 }) {
   return (
     <div className="relative bg-white border border-slate-200 rounded-md overflow-hidden flex flex-col shadow-sm">
       <div className="h-[3px] w-full flex-none" style={{ background: accentColor }} />
       <div className="p-5 flex flex-col gap-3 flex-1">
         <p className="font-condensed text-[10px] font-bold tracking-[0.22em] uppercase text-slate-500">{title}</p>
-        <div className={`font-data text-[2rem] font-bold leading-none tracking-tight ${isPublic ? 'text-slate-800' : (valueColor ?? 'text-slate-800')}`}>{value}</div>
+        <div className={`font-data text-[2rem] font-bold leading-none tracking-tight ${vis.showStatusBadges ? (valueColor ?? 'text-slate-800') : 'text-slate-800'}`}>{value}</div>
         <div className="flex flex-col gap-1 mt-auto">
           <p className="text-[11px] text-slate-500">{sub}</p>
-          <DeltaChip delta={delta ?? null} isPublic={isPublic} t={t} />
+          <DeltaChip delta={delta ?? null} vis={vis} t={t} />
         </div>
       </div>
     </div>
@@ -50,7 +51,7 @@ export function KPICards() {
   const { data, selectedDate, mode, t } = useDashboard()
   if (!data) return null
 
-  const isPublic = mode === 'public'
+  const vis = getVisibility(mode)
 
   const kpis = campaignKPIs(data)
 
@@ -85,11 +86,11 @@ export function KPICards() {
     }
   }, [data.coverage, data.activity, selectedDate, vaccinated, todayTeams])
 
-  const cols = isPublic ? 'grid-cols-2 md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'
+  const cols = vis.showMissedCard ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-3'
 
   return (
     <div className={`grid ${cols} gap-4`}>
-      <KPICard title={t('Children Enumerated')} value={kpis.enumerated.toLocaleString()} sub={t('Eligible 0–59m found')} accentColor="#009FDB" isPublic={isPublic} t={t} />
+      <KPICard title={t('Children Enumerated')} value={kpis.enumerated.toLocaleString()} sub={t('Eligible 0–59m found')} accentColor="#009FDB" vis={vis} t={t} />
       <KPICard
         title={t('Vaccinated')}
         value={`${vaccinated.toLocaleString()} (${pct}%)`}
@@ -97,17 +98,17 @@ export function KPICards() {
         accentColor="#16a34a"
         valueColor={pct >= 80 ? 'text-green-700' : pct >= 50 ? 'text-amber-600' : 'text-slate-800'}
         delta={deltas.vaccinated}
-        isPublic={isPublic}
+        vis={vis}
         t={t}
       />
-      {!isPublic && (
+      {vis.showMissedCard && (
         <KPICard
           title={t('Missed Children')}
           value={missed.toLocaleString()}
           sub={t('Need revisit')}
           accentColor="#dc2626"
           valueColor={missed > 0 ? 'text-red-600' : 'text-slate-800'}
-          isPublic={isPublic}
+          vis={vis}
           t={t}
         />
       )}
@@ -118,7 +119,7 @@ export function KPICards() {
         accentColor="#7c3aed"
         valueColor={teamsColor}
         delta={deltas.teams}
-        isPublic={isPublic}
+        vis={vis}
         t={t}
       />
     </div>
