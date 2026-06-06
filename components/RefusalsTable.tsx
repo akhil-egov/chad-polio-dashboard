@@ -1,5 +1,6 @@
 'use client'
 import { useDashboard } from '@/lib/dashboard-context'
+import { refusalsByReason } from '@/lib/campaign-queries'
 
 function formatReason(code: string): string {
   return code.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
@@ -9,13 +10,10 @@ export function RefusalsTable() {
   const { data, t } = useDashboard()
   if (!data) return null
 
-  const byReason = new Map<string, number>()
-  for (const r of data.refusals) {
-    byReason.set(r.reason_code, (byReason.get(r.reason_code) ?? 0) + r.count)
-  }
-  const reasonTotals = [...byReason.entries()].sort((a, b) => b[1] - a[1])
-  const grandTotal = reasonTotals.reduce((s, [, c]) => s + c, 0)
-  const maxCount = reasonTotals[0]?.[1] ?? 1
+  const reasonRows = refusalsByReason(data)
+  const reasonTotals = reasonRows.map(r => [r.reason, r.count] as [string, number])
+  const grandTotal = reasonRows.reduce((s, r) => s + r.count, 0)
+  const maxCount = reasonRows[0]?.count ?? 1
 
   const byFacility = new Map<string, { facility_id: string; reasons: Map<string, number>; total: number }>()
   for (const r of data.refusals) {

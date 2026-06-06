@@ -2,6 +2,7 @@
 import { useState, useMemo } from 'react'
 import { IconAlertCircle, IconChevronUp, IconChevronDown } from '@tabler/icons-react'
 import { useDashboard } from '@/lib/dashboard-context'
+import { coverageByFacility, teamActivityByFacility } from '@/lib/campaign-queries'
 
 type SortKey = 'pct_complete' | 'missed' | 'eligible' | 'reporting_pct'
 
@@ -60,33 +61,32 @@ export function HFTable() {
     return selectedDate ?? maxDate
   }, [data.activity, selectedDate])
 
-  const { totalTeamsByHF, reportingTeamsByHF } = useMemo(() => {
-    const total = new Map<string, Set<string>>()
+  const reportingTeamsByHF = useMemo(() => {
     const reporting = new Map<string, Set<string>>()
     for (const r of data.activity) {
-      if (!total.has(r.facility_name)) total.set(r.facility_name, new Set())
-      total.get(r.facility_name)!.add(r.user_name)
       if (r.date === refDate) {
         if (!reporting.has(r.facility_name)) reporting.set(r.facility_name, new Set())
         reporting.get(r.facility_name)!.add(r.user_name)
       }
     }
-    return { totalTeamsByHF: total, reportingTeamsByHF: reporting }
+    return reporting
   }, [data.activity, refDate])
 
   const rows: FacilityRow[] = useMemo(() => {
-    return data.enumeration.map(r => {
-      const pct_complete = r.eligible_children > 0
-        ? (r.vaccinated_children / r.eligible_children) * 100
-        : 0
+    const coverage = coverageByFacility(data)
+    const teams = teamActivityByFacility(data)
+    const teamsByFacility = new Map(teams.map(t => [t.facility_name, t]))
+
+    return coverage.map(r => {
       const missed = Math.max(0, r.eligible_children - r.vaccinated_children)
-      const totalTeams = totalTeamsByHF.get(r.facility_name)?.size ?? 0
+      const teamRow = teamsByFacility.get(r.facility_name)
+      const totalTeams = teamRow?.total_users ?? 0
       const reportingTeams = reportingTeamsByHF.get(r.facility_name)?.size ?? 0
       return {
         facility_name: r.facility_name,
         eligible: r.eligible_children,
         missed,
-        pct_complete,
+        pct_complete: r.pct_complete,
         totalTeams,
         reportingTeams,
         reporting_pct: totalTeams > 0 ? reportingTeams / totalTeams : 0,
@@ -96,7 +96,7 @@ export function HFTable() {
         ? (a[sortKey] as number) - (b[sortKey] as number)
         : (b[sortKey] as number) - (a[sortKey] as number)
     )
-  }, [data.enumeration, totalTeamsByHF, reportingTeamsByHF, sortKey, asc])
+  }, [data, reportingTeamsByHF, sortKey, asc])
 
   const SortIcon = ({ k }: { k: SortKey }) => {
     if (sortKey !== k) return null

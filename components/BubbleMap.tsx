@@ -8,8 +8,8 @@ import 'leaflet/dist/leaflet.css'
 import { IconArrowLeft } from '@tabler/icons-react'
 import { useDashboard } from '@/lib/dashboard-context'
 import { DateFilter } from '@/components/DateFilter'
-import type { GpsRow, GpsRefusalRow, GpsZeroDoseRow } from '@/lib/types'
-import { LayerPanel } from '@/components/map/LayerPanel'
+import { useMapState } from '@/lib/use-map-state'
+import type { AnyDot } from '@/lib/use-map-state'
 import { HouseholdCard, RefusalCard, ZeroDoseCard } from '@/components/map/HoverCards'
 
 const ZOOM_THRESHOLD = 14
@@ -58,12 +58,6 @@ function onEachADM2(_feature: any, layer: L.Layer) {
     })
   }
 }
-
-// ── Typed dot union ──────────────────────────────────────────────────────────
-type AnyDot =
-  | { type: 'household'; row: GpsRow }
-  | { type: 'refusal'; row: GpsRefusalRow }
-  | { type: 'zerodose'; row: GpsZeroDoseRow }
 
 type HoveredDot = { dot: AnyDot; x: number; y: number }
 
@@ -115,6 +109,17 @@ function DotHoverTracker({ dots, zoom, onHover }: {
   return null
 }
 
+const REFUSAL_LABEL: Record<string, string> = {
+  NOT_DECISION_MAKER: 'Not the decision maker',
+  RELIGIOUS_BELIEFS: 'Religious beliefs',
+  VACCINE_SIDE_EFFECTS: 'Concerns about side effects',
+  AFRICA_IS_POLIO_FREE: 'Believes Africa is polio-free',
+  TOO_MANY_DOSES: 'Too many doses',
+  CHILD_WAS_SICK: 'Child was sick',
+  CONCERNS_ABOUT_NOPV: 'Concerns about nOPV2',
+  CONCERNS_ABOUT_COVID19: 'COVID-19 concerns',
+}
+
 // ── Main component ───────────────────────────────────────────────────────────
 export function BubbleMap({ onBack }: { onBack: () => void }) {
   const { data, mode, t } = useDashboard()
@@ -123,83 +128,44 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
   const canvasRenderer = useMemo(() => L.canvas({ padding: 0.5 }), [])
 
   const [zoom, setZoom] = useState(12)
-  const [selectedFac, setSelectedFac] = useState<string | null>(null)
   const [flyTarget, setFlyTarget] = useState<{ pos: [number, number]; id: number; zoom?: number } | null>(null)
   const [adm1, setAdm1] = useState<GeoJsonObject | null>(null)
   const [adm2, setAdm2] = useState<GeoJsonObject | null>(null)
   const [satOn, setSatOn] = useState(false)
   const [hoveredDot, setHoveredDot] = useState<HoveredDot | null>(null)
 
-  // Layer toggles
-  const [showHouseholds, setShowHouseholds] = useState(true)
-  const [showRefusals, setShowRefusals] = useState(false)
-  const [showZerodose, setShowZerodose] = useState(false)
-
-  // Sub-filters: null = all selected
-  const [selectedReasons, setSelectedReasons] = useState<Set<string> | null>(null)
-  const [selectedZdStatuses, setSelectedZdStatuses] = useState<Set<string> | null>(null)
+  const {
+    selectedFac,
+    handleSelect: selectFac,
+    handleClear: clearFac,
+    showHouseholds,
+    toggleHouseholds,
+    showRefusals,
+    toggleRefusals,
+    showZerodose,
+    toggleZerodose,
+    selectedReasons,
+    toggleReason,
+    isReasonChecked,
+    selectAllReasons,
+    selectedZdStatuses,
+    toggleZdStatus,
+    isZdStatusChecked,
+    selectAllZdStatuses,
+    visibleHouseholds,
+    visibleRefusals,
+    visibleZerodose,
+    allDots,
+    refusalReasonCounts,
+    zeroDoseStatusCounts,
+    totalVisible,
+  } = useMapState(data)
 
   useEffect(() => {
     fetch('/adm1.geojson').then(r => r.json()).then(setAdm1).catch(() => null)
     fetch('/adm2.geojson').then(r => r.json()).then(setAdm2).catch(() => null)
   }, [])
 
-  // ── Counts for sub-filter labels ────────────────────────────────────────────
-  const refusalReasonCounts = useMemo(() => {
-    if (!data?.gps_refusals) return {} as Record<string, number>
-    const counts: Record<string, number> = {}
-    for (const r of data.gps_refusals) {
-      const k = r.reason_for_refusal ?? 'UNKNOWN'
-      counts[k] = (counts[k] ?? 0) + 1
-    }
-    return counts
-  }, [data])
-
-  const allReasonKeys = useMemo(() => Object.keys(refusalReasonCounts), [refusalReasonCounts])
-
-  const zeroDoseStatusCounts = useMemo(() => {
-    if (!data?.gps_zerodose) return { vaccinated: 0, not_vaccinated: 0 }
-    const c = { vaccinated: 0, not_vaccinated: 0 }
-    for (const z of data.gps_zerodose) {
-      if (z.administration_status === 'ADMINISTRATION_SUCCESS') c.vaccinated++
-      else c.not_vaccinated++
-    }
-    return c
-  }, [data])
-
-  // ── Toggle handlers ─────────────────────────────────────────────────────────
-  function toggleReasons() { setShowRefusals(v => !v) }
-  function toggleZerodose() { setShowZerodose(v => !v) }
-
-  function toggleReason(reason: string) {
-    setSelectedReasons(prev => {
-      const current = prev ?? new Set(allReasonKeys)
-      const next = new Set(current)
-      if (next.has(reason)) next.delete(reason)
-      else next.add(reason)
-      return next.size === allReasonKeys.length ? null : next
-    })
-  }
-
-  function isReasonChecked(reason: string) {
-    return selectedReasons === null || selectedReasons.has(reason)
-  }
-
-  function toggleZdStatus(key: string) {
-    setSelectedZdStatuses(prev => {
-      const current = prev ?? new Set(['vaccinated', 'not_vaccinated'])
-      const next = new Set(current)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next.size === 2 ? null : next
-    })
-  }
-
-  function isZdStatusChecked(key: string) {
-    return selectedZdStatuses === null || selectedZdStatuses.has(key)
-  }
-
-  // ── Visible dot sets ────────────────────────────────────────────────────────
   const centroids = useMemo(() => {
     if (!data) return new Map<string, [number, number]>()
     const acc = new Map<string, { latSum: number; lngSum: number; n: number }>()
@@ -232,52 +198,15 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
 
   const visibleBubbles = selectedFac ? facilities.filter(f => f.name === selectedFac) : facilities
 
-  const visibleHouseholds = useMemo(() => {
-    if (!data || !showHouseholds) return []
-    let locs = data.gps
-    if (selectedFac) locs = locs.filter(l => l.facility_name === selectedFac)
-    return locs
-  }, [data, selectedFac, showHouseholds])
-
-  const visibleRefusals = useMemo(() => {
-    if (!data || !showRefusals) return []
-    let locs = data.gps_refusals ?? []
-    if (selectedFac) locs = locs.filter(l => l.facility_name === selectedFac)
-    if (selectedReasons !== null) locs = locs.filter(l => selectedReasons.has(l.reason_for_refusal ?? 'UNKNOWN'))
-    return locs
-  }, [data, selectedFac, showRefusals, selectedReasons])
-
-  const visibleZerodose = useMemo(() => {
-    if (!data || !showZerodose) return []
-    let locs = data.gps_zerodose ?? []
-    if (selectedFac) locs = locs.filter(l => l.facility_name === selectedFac)
-    if (selectedZdStatuses !== null) {
-      locs = locs.filter(l => {
-        const key = l.administration_status === 'ADMINISTRATION_SUCCESS' ? 'vaccinated' : 'not_vaccinated'
-        return selectedZdStatuses.has(key)
-      })
-    }
-    return locs
-  }, [data, selectedFac, showZerodose, selectedZdStatuses])
-
-  // Combined for hover scanner — ordered so refusal wins on overlap
-  const allDots = useMemo<AnyDot[]>(() => [
-    ...visibleHouseholds.map(row => ({ type: 'household' as const, row })),
-    ...visibleZerodose.map(row => ({ type: 'zerodose' as const, row })),
-    ...visibleRefusals.map(row => ({ type: 'refusal' as const, row })),
-  ], [visibleHouseholds, visibleZerodose, visibleRefusals])
-
-  const totalVisible = visibleHouseholds.length + visibleRefusals.length + visibleZerodose.length
-
   function handleSelect(name: string) {
     if (name === selectedFac) { handleClear(); return }
-    setSelectedFac(name)
+    selectFac(name)
     const pos = centroids.get(name)
     if (pos) setFlyTarget(prev => ({ pos, id: (prev?.id ?? 0) + 1 }))
   }
 
   function handleClear() {
-    setSelectedFac(null)
+    clearFac()
     setFlyTarget({ pos: DEFAULT_CENTER, id: Date.now(), zoom: DEFAULT_ZOOM })
   }
 
@@ -463,26 +392,78 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
           )}
 
           {/* ── Layer panel ── */}
-          <LayerPanel
-            data={data}
-            isPublic={isPublic}
-            showHouseholds={showHouseholds}
-            showRefusals={showRefusals}
-            showZerodose={showZerodose}
-            selectedReasons={selectedReasons}
-            selectedZdStatuses={selectedZdStatuses}
-            refusalReasonCounts={refusalReasonCounts}
-            zeroDoseStatusCounts={zeroDoseStatusCounts}
-            onToggleHouseholds={() => setShowHouseholds(v => !v)}
-            onToggleRefusals={toggleReasons}
-            onToggleZerodose={toggleZerodose}
-            onToggleReason={toggleReason}
-            onToggleZdStatus={toggleZdStatus}
-            isReasonChecked={isReasonChecked}
-            isZdStatusChecked={isZdStatusChecked}
-            onSelectAllReasons={() => setSelectedReasons(null)}
-            onSelectAllZdStatuses={() => setSelectedZdStatuses(null)}
-          />
+          <div
+            className="absolute top-3 left-3 z-[800] bg-white/97 border border-gray-200 rounded-xl shadow-md overflow-hidden"
+            style={{ minWidth: 196, maxHeight: 420, overflowY: 'auto' }}
+          >
+            <LayerRow
+              color={isPublic ? '#009FDB' : '#64748b'}
+              label="Households"
+              count={data?.gps.length}
+              active={showHouseholds}
+              onToggle={toggleHouseholds}
+            />
+
+            <LayerRow
+              color="#C62828"
+              label="Refusals"
+              count={data?.gps_refusals?.length}
+              active={showRefusals}
+              onToggle={toggleRefusals}
+            />
+            {showRefusals && (
+              <div className="bg-red-50/60 border-t border-red-100/60 px-3 py-2 space-y-1">
+                {selectedReasons !== null && (
+                  <button onClick={selectAllReasons} className="text-[10px] text-[#009FDB] hover:underline w-full text-left mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#009FDB]">
+                    Select all
+                  </button>
+                )}
+                {Object.entries(refusalReasonCounts)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([reason, count]) => (
+                    <SubCheck
+                      key={reason}
+                      checked={isReasonChecked(reason)}
+                      label={REFUSAL_LABEL[reason] ?? reason}
+                      count={count}
+                      color="#C62828"
+                      onToggle={() => toggleReason(reason)}
+                    />
+                  ))}
+              </div>
+            )}
+
+            <LayerRow
+              color="#F9A825"
+              label="Zero Dose"
+              count={data?.gps_zerodose?.length}
+              active={showZerodose}
+              onToggle={toggleZerodose}
+            />
+            {showZerodose && (
+              <div className="bg-amber-50/60 border-t border-amber-100/60 px-3 py-2 space-y-1">
+                {selectedZdStatuses !== null && (
+                  <button onClick={selectAllZdStatuses} className="text-[10px] text-[#009FDB] hover:underline w-full text-left mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#009FDB]">
+                    Select all
+                  </button>
+                )}
+                <SubCheck
+                  checked={isZdStatusChecked('not_vaccinated')}
+                  label="Not yet vaccinated"
+                  count={zeroDoseStatusCounts.not_vaccinated}
+                  color="#C62828"
+                  onToggle={() => toggleZdStatus('not_vaccinated')}
+                />
+                <SubCheck
+                  checked={isZdStatusChecked('vaccinated')}
+                  label="Vaccinated ✓"
+                  count={zeroDoseStatusCounts.vaccinated}
+                  color="#16a34a"
+                  onToggle={() => toggleZdStatus('vaccinated')}
+                />
+              </div>
+            )}
+          </div>
 
           {/* Stats bar */}
           <div className="absolute top-3 right-14 z-[800] flex gap-1.5 pointer-events-none">
@@ -538,3 +519,51 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
   )
 }
 
+function LayerRow({ color, label, count, active, onToggle }: {
+  color: string; label: string; count?: number; active: boolean; onToggle: () => void
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors border-b border-gray-100 focus-visible:ring-2 focus-visible:ring-[#009FDB] ${active ? 'bg-white' : 'bg-gray-50/60'}`}
+    >
+      <div
+        className="w-3 h-3 rounded-full flex-shrink-0 border border-white/50 shadow-sm transition-colors"
+        style={{ background: active ? color : '#d1d5db' }}
+      />
+      <span className={`text-xs font-semibold flex-1 ${active ? 'text-gray-800' : 'text-gray-400'}`}>
+        {label}
+      </span>
+      {count != null && (
+        <span className={`text-[10px] ${active ? 'text-gray-400' : 'text-gray-300'}`}>
+          {count.toLocaleString()}
+        </span>
+      )}
+      <span className={`text-[10px] font-medium ml-1 ${active ? 'text-gray-500' : 'text-gray-300'}`}>
+        {active ? 'ON' : 'OFF'}
+      </span>
+    </button>
+  )
+}
+
+function SubCheck({ checked, label, count, color, onToggle }: {
+  checked: boolean; label: string; count: number; color: string; onToggle: () => void
+}) {
+  return (
+    <label className="flex items-center gap-2 cursor-pointer">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onToggle}
+        className="w-3 h-3 rounded border-gray-300 cursor-pointer focus-visible:ring-2 focus-visible:ring-[#009FDB]"
+        style={{ accentColor: color }}
+      />
+      <span className={`text-[10px] flex-1 transition-colors ${checked ? 'text-gray-700' : 'text-gray-400'}`}>
+        {label}
+      </span>
+      <span className={`text-[10px] font-semibold tabular-nums ${checked ? 'text-gray-500' : 'text-gray-300'}`}>
+        {count}
+      </span>
+    </label>
+  )
+}

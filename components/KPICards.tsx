@@ -1,6 +1,7 @@
 'use client'
 import { useMemo } from 'react'
 import { useDashboard } from '@/lib/dashboard-context'
+import { campaignKPIs } from '@/lib/campaign-queries'
 
 interface Delta { value: number; isGood: boolean }
 
@@ -51,31 +52,26 @@ export function KPICards() {
 
   const isPublic = mode === 'public'
 
-  const enumerated = useMemo(
-    () => data.enumeration.reduce((s, r) => s + r.eligible_children, 0),
-    [data.enumeration]
-  )
+  const kpis = campaignKPIs(data)
 
   const { vaccinated, pct } = useMemo(() => {
     const rows = selectedDate ? data.coverage.filter(r => r.date === selectedDate) : data.coverage
     const vacc = rows.reduce((s, r) => s + r.vaccinated, 0)
-    return { vaccinated: vacc, pct: enumerated > 0 ? Math.round((vacc / enumerated) * 100) : 0 }
-  }, [data.coverage, selectedDate, enumerated])
+    return { vaccinated: vacc, pct: kpis.enumerated > 0 ? Math.round((vacc / kpis.enumerated) * 100) : 0 }
+  }, [data.coverage, selectedDate, kpis.enumerated])
 
-  const missed = Math.max(0, enumerated - vaccinated)
+  const missed = Math.max(0, kpis.enumerated - vaccinated)
 
-  const { allTeams, todayTeams, refDate } = useMemo(() => {
+  const todayTeams = useMemo(() => {
     const allActivityDates = data.activity.map(r => r.date)
     const maxActivityDate = allActivityDates.length > 0
       ? allActivityDates.reduce((a, b) => (a > b ? a : b))
       : null
     const ref = selectedDate ?? maxActivityDate
-    const all = new Set(data.activity.map(r => r.user_name))
-    const today = new Set(data.activity.filter(r => r.date === ref).map(r => r.user_name))
-    return { allTeams: all, todayTeams: today, refDate: ref }
+    return new Set(data.activity.filter(r => r.date === ref).map(r => r.user_name))
   }, [data.activity, selectedDate])
 
-  const teamsPct = allTeams.size > 0 ? todayTeams.size / allTeams.size : 0
+  const teamsPct = kpis.totalTeams > 0 ? todayTeams.size / kpis.totalTeams : 0
   const teamsColor = teamsPct < 0.6 ? 'text-red-600' : teamsPct < 0.8 ? 'text-amber-600' : 'text-slate-800'
 
   const deltas = useMemo((): { vaccinated: Delta | null; teams: Delta | null } => {
@@ -93,7 +89,7 @@ export function KPICards() {
 
   return (
     <div className={`grid ${cols} gap-4`}>
-      <KPICard title={t('Children Enumerated')} value={enumerated.toLocaleString()} sub={t('Eligible 0–59m found')} accentColor="#009FDB" isPublic={isPublic} t={t} />
+      <KPICard title={t('Children Enumerated')} value={kpis.enumerated.toLocaleString()} sub={t('Eligible 0–59m found')} accentColor="#009FDB" isPublic={isPublic} t={t} />
       <KPICard
         title={t('Vaccinated')}
         value={`${vaccinated.toLocaleString()} (${pct}%)`}
@@ -117,7 +113,7 @@ export function KPICards() {
       )}
       <KPICard
         title={t('Teams Reporting')}
-        value={`${todayTeams.size} / ${allTeams.size}`}
+        value={`${todayTeams.size} / ${kpis.totalTeams}`}
         sub={t('Active today')}
         accentColor="#7c3aed"
         valueColor={teamsColor}
