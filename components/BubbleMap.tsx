@@ -11,8 +11,10 @@ import { DateFilter } from '@/components/DateFilter'
 import { useMapState } from '@/lib/use-map-state'
 import type { AnyDot } from '@/lib/use-map-state'
 import { HouseholdCard, RefusalCard, ZeroDoseCard } from '@/components/map/HoverCards'
+import { FilterSidebar } from '@/components/map/FilterSidebar'
+import type { FacilityItem } from '@/components/map/FilterSidebar'
 import { getVisibility } from '@/lib/visibility'
-import { REFUSAL_LABEL } from '@/lib/constants'
+import { DIGIT_ORANGE } from '@/lib/constants'
 
 const ZOOM_THRESHOLD = 14
 
@@ -126,8 +128,10 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
     showHouseholds,
     toggleHouseholds,
     showRefusals,
+    setShowRefusals,
     toggleRefusals,
     showZerodose,
+    setShowZerodose,
     toggleZerodose,
     selectedReasons,
     toggleReason,
@@ -144,6 +148,9 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
     refusalReasonCounts,
     zeroDoseStatusCounts,
     totalVisible,
+    facilitySearch,
+    setFacilitySearch,
+    filterCount,
   } = useMapState(data)
 
   useEffect(() => {
@@ -164,7 +171,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
     return out
   }, [data])
 
-  const facilities = useMemo(() => {
+  const facilities = useMemo((): FacilityItem[] => {
     if (!data) return []
     const microplanByFac = new Map(data.microplan.map(r => [r.facility_name, r.microplan_target]))
     return data.enumeration.map(r => {
@@ -180,7 +187,13 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
     }).sort((a, b) => a.covPct - b.covPct)
   }, [data, mode])
 
-  const visibleBubbles = selectedFac ? facilities.filter(f => f.name === selectedFac) : facilities
+  const filteredFacilities = useMemo((): FacilityItem[] => {
+    if (!facilitySearch) return facilities
+    const q = facilitySearch.toLowerCase()
+    return facilities.filter(f => f.name.toLowerCase().includes(q))
+  }, [facilities, facilitySearch])
+
+  const visibleBubbles = facilities
 
   function handleSelect(name: string) {
     if (name === selectedFac) { handleClear(); return }
@@ -192,6 +205,12 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
   function handleClear() {
     clearFac()
     setFlyTarget({ pos: DEFAULT_CENTER, id: Date.now(), zoom: DEFAULT_ZOOM })
+  }
+
+  function handleClearAll() {
+    handleClear()
+    setShowRefusals(false)
+    setShowZerodose(false)
   }
 
   const LEGEND_TIERS = vis.showStatusBadges
@@ -227,6 +246,14 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
           <span className="bg-blue-800 text-white text-[10px] font-bold px-2 py-0.5 rounded shrink-0 tracking-wide">WHO AFRO</span>
           <span className="text-sm font-semibold whitespace-nowrap">Chad Polio SIA · Enumeration Dashboard</span>
           <span className="text-xs text-gray-400 whitespace-nowrap hidden md:block">N&apos;Djamena · Jun 2026</span>
+          {filterCount > 0 && (
+            <span
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-full text-white flex-shrink-0"
+              style={{ background: DIGIT_ORANGE }}
+            >
+              {filterCount} filter{filterCount > 1 ? 's' : ''} active
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
           <DateFilter hideLabel />
@@ -243,51 +270,37 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
       <div className="flex flex-1 overflow-hidden">
 
         {/* ── Sidebar ── */}
-        <div className="w-[290px] flex-shrink-0 flex flex-col border-r border-gray-200 overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-gray-200 flex-shrink-0">
-            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Call list</div>
-            <div className="text-[11px] text-gray-400 mt-0.5">Worst coverage first · click to isolate</div>
-          </div>
-
-          <div className="relative flex-1 overflow-hidden">
-            <div className="h-full overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e5e7eb transparent' }}>
-              {facilities.map(fac => {
-                const sel = selectedFac === fac.name
-                return (
-                  <div
-                    key={fac.name}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => handleSelect(fac.name)}
-                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelect(fac.name) } }}
-                    className={`flex items-stretch cursor-pointer border-b border-gray-50 h-14 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#009FDB] ${sel ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
-                  >
-                    <div className="flex-shrink-0 transition-all" style={{ background: fac.color, width: sel ? '6px' : '4px' }} />
-                    <div className="flex-1 px-3 py-2 min-w-0 flex flex-col justify-center">
-                      <div className={`text-[12px] font-semibold truncate ${sel ? 'text-blue-700' : 'text-gray-800'}`}>{fac.name}</div>
-                      <div className="text-[12px] font-semibold mt-0.5" style={{ color: fac.color }}>
-                        {fac.covPct.toFixed(1)}% <span className="text-gray-400 font-normal text-[10px]">coverage</span>
-                      </div>
-                    </div>
-                    <div className="px-3 py-2 text-right flex flex-col justify-center flex-shrink-0">
-                      <div className="text-[13px] font-semibold text-gray-800">{fac.records.toLocaleString()}</div>
-                      <div className="text-[10px] text-gray-500 mt-0.5">target pop.</div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-            <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent" />
-          </div>
-
-          {selectedFac && (
-            <div className="flex-shrink-0 border-t border-gray-200">
-              <button onClick={handleClear} className="w-full h-10 bg-white hover:bg-gray-50 text-sm text-blue-700 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#009FDB]">
-                ✕ Show all facilities
-              </button>
-            </div>
-          )}
-        </div>
+        <FilterSidebar
+          facilities={facilities}
+          filteredFacilities={filteredFacilities}
+          selectedFac={selectedFac}
+          onSelect={handleSelect}
+          onClearFacility={handleClear}
+          onClearAll={handleClearAll}
+          facilitySearch={facilitySearch}
+          setFacilitySearch={setFacilitySearch}
+          showHouseholds={showHouseholds}
+          toggleHouseholds={toggleHouseholds}
+          showRefusals={showRefusals}
+          toggleRefusals={toggleRefusals}
+          showZerodose={showZerodose}
+          toggleZerodose={toggleZerodose}
+          refusalReasonCounts={refusalReasonCounts}
+          selectedReasons={selectedReasons}
+          isReasonChecked={isReasonChecked}
+          toggleReason={toggleReason}
+          selectAllReasons={selectAllReasons}
+          zeroDoseStatusCounts={zeroDoseStatusCounts}
+          selectedZdStatuses={selectedZdStatuses}
+          isZdStatusChecked={isZdStatusChecked}
+          toggleZdStatus={toggleZdStatus}
+          selectAllZdStatuses={selectAllZdStatuses}
+          householdsTotal={data?.gps.length}
+          refusalsTotal={data?.gps_refusals?.length}
+          zerodoseTotal={data?.gps_zerodose?.length}
+          filterCount={filterCount}
+          dotColor={vis.dotColor}
+        />
 
         {/* ── Map ── */}
         <div ref={mapContainerRef} className="flex-1 relative min-w-0">
@@ -307,8 +320,13 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
               const pos = centroids.get(fac.name)
               if (!pos) return null
               return (
-                <Marker key={fac.name} position={pos} icon={makeBubbleIcon(fac.abbrev, fac.covPct, fac.records, fac.color)}
-                  eventHandlers={{ click: () => handleSelect(fac.name) }}>
+                <Marker
+                  key={fac.name}
+                  position={pos}
+                  icon={makeBubbleIcon(fac.abbrev, fac.covPct, fac.records, fac.color)}
+                  opacity={selectedFac && fac.name !== selectedFac ? 0.3 : 1}
+                  eventHandlers={{ click: () => handleSelect(fac.name) }}
+                >
                   <Popup>
                     <div style={{ minWidth: 160, fontFamily: 'system-ui, sans-serif' }}>
                       <div style={{ fontWeight: 700, fontSize: 13, color: '#003F72', marginBottom: 6 }}>{fac.name}</div>
@@ -395,84 +413,9 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
           {/*
            * Map overlay z-index hierarchy (React divs only — do not touch leaflet-pane classes):
            *   Coverage legend:      z-[800]  — bottom-left, always below panel
-           *   Layer toggle panel:   z-[810]  — top-left, must sit above legend
-           *   Stats bar + sat btn:  z-[810]  — top-right, same tier as panel
+           *   Stats bar + sat btn:  z-[810]  — top-right
            *   Hover card:           z-[900]  — topmost, floats over everything
            */}
-
-          {/* ── Layer panel ── */}
-          <div
-            className="absolute top-3 left-3 z-[810] bg-white/97 border border-gray-200 rounded-xl shadow-md overflow-hidden"
-            style={{ minWidth: 196, maxHeight: 'calc(100vh - 52px - 32px)', overflowY: 'auto' }}
-          >
-            <LayerRow
-              color={vis.dotColor(false)}
-              label="Households"
-              count={data?.gps.length}
-              active={showHouseholds}
-              onToggle={toggleHouseholds}
-            />
-
-            <LayerRow
-              color="#C62828"
-              label="Refusals"
-              count={data?.gps_refusals?.length}
-              active={showRefusals}
-              onToggle={toggleRefusals}
-            />
-            {showRefusals && (
-              <div className="bg-red-50/60 border-t border-red-100/60 px-3 py-2 space-y-1">
-                {selectedReasons !== null && (
-                  <button onClick={selectAllReasons} className="text-[10px] text-[#009FDB] hover:underline w-full text-left mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#009FDB]">
-                    Select all
-                  </button>
-                )}
-                {Object.entries(refusalReasonCounts)
-                  .sort((a, b) => b[1] - a[1])
-                  .map(([reason, count]) => (
-                    <SubCheck
-                      key={reason}
-                      checked={isReasonChecked(reason)}
-                      label={REFUSAL_LABEL[reason] ?? reason}
-                      count={count}
-                      color="#C62828"
-                      onToggle={() => toggleReason(reason)}
-                    />
-                  ))}
-              </div>
-            )}
-
-            <LayerRow
-              color="#F9A825"
-              label="Zero Dose"
-              count={data?.gps_zerodose?.length}
-              active={showZerodose}
-              onToggle={toggleZerodose}
-            />
-            {showZerodose && (
-              <div className="bg-amber-50/60 border-t border-amber-100/60 px-3 py-2 space-y-1">
-                {selectedZdStatuses !== null && (
-                  <button onClick={selectAllZdStatuses} className="text-[10px] text-[#009FDB] hover:underline w-full text-left mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#009FDB]">
-                    Select all
-                  </button>
-                )}
-                <SubCheck
-                  checked={isZdStatusChecked('not_vaccinated')}
-                  label="Not yet vaccinated"
-                  count={zeroDoseStatusCounts.not_vaccinated}
-                  color="#C62828"
-                  onToggle={() => toggleZdStatus('not_vaccinated')}
-                />
-                <SubCheck
-                  checked={isZdStatusChecked('vaccinated')}
-                  label="Vaccinated ✓"
-                  count={zeroDoseStatusCounts.vaccinated}
-                  color="#16a34a"
-                  onToggle={() => toggleZdStatus('vaccinated')}
-                />
-              </div>
-            )}
-          </div>
 
           {/* Stats bar */}
           <div className="absolute top-3 right-14 z-[800] flex gap-1.5 pointer-events-none">
@@ -525,54 +468,5 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
         </div>
       </div>
     </div>
-  )
-}
-
-function LayerRow({ color, label, count, active, onToggle }: {
-  color: string; label: string; count?: number; active: boolean; onToggle: () => void
-}) {
-  return (
-    <button
-      onClick={onToggle}
-      className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors border-b border-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#009FDB] ${active ? 'bg-white' : 'bg-gray-50/60'}`}
-    >
-      <div
-        className="w-3 h-3 rounded-full flex-shrink-0 border border-white/50 shadow-sm transition-colors"
-        style={{ background: active ? color : '#d1d5db' }}
-      />
-      <span className={`text-xs font-semibold flex-1 ${active ? 'text-gray-800' : 'text-gray-400'}`}>
-        {label}
-      </span>
-      {count != null && (
-        <span className={`text-[10px] ${active ? 'text-gray-400' : 'text-gray-300'}`}>
-          {count.toLocaleString()}
-        </span>
-      )}
-      <span className={`text-[10px] font-medium ml-1 ${active ? 'text-gray-500' : 'text-gray-300'}`}>
-        {active ? 'ON' : 'OFF'}
-      </span>
-    </button>
-  )
-}
-
-function SubCheck({ checked, label, count, color, onToggle }: {
-  checked: boolean; label: string; count: number; color: string; onToggle: () => void
-}) {
-  return (
-    <label className="flex items-center gap-2 cursor-pointer">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={onToggle}
-        className="w-3 h-3 rounded border-gray-300 cursor-pointer focus-visible:ring-2 focus-visible:ring-[#009FDB]"
-        style={{ accentColor: color }}
-      />
-      <span className={`text-[10px] flex-1 transition-colors ${checked ? 'text-gray-700' : 'text-gray-400'}`}>
-        {label}
-      </span>
-      <span className={`text-[10px] font-semibold tabular-nums ${checked ? 'text-gray-500' : 'text-gray-300'}`}>
-        {count}
-      </span>
-    </label>
   )
 }

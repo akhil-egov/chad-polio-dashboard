@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import type { DashboardData, GpsRow, GpsRefusalRow, GpsZeroDoseRow } from '@/lib/types'
 
 export type AnyDot =
@@ -7,12 +8,25 @@ export type AnyDot =
   | { type: 'zerodose'; row: GpsZeroDoseRow }
 
 export function useMapState(data: DashboardData | null) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
   const [selectedFac, setSelectedFac] = useState<string | null>(null)
   const [showHouseholds, setShowHouseholds] = useState(true)
   const [showRefusals, setShowRefusals] = useState(false)
   const [showZerodose, setShowZerodose] = useState(false)
   const [selectedReasons, setSelectedReasons] = useState<Set<string> | null>(null)
   const [selectedZdStatuses, setSelectedZdStatuses] = useState<Set<string> | null>(null)
+  const [facilitySearch, setFacilitySearch] = useState('')
+
+  // On mount, restore facility selection from URL ?facility= param
+  useEffect(() => {
+    const facilityId = searchParams.get('facility')
+    if (!facilityId || !data) return
+    const match = data.enumeration.find(r => r.facility_id === facilityId)
+    if (match) setSelectedFac(match.facility_name)
+  }, [data, searchParams])
 
   const refusalReasonCounts = useMemo(() => {
     if (!data?.gps_refusals) return {} as Record<string, number>
@@ -72,12 +86,31 @@ export function useMapState(data: DashboardData | null) {
 
   const totalVisible = visibleHouseholds.length + visibleRefusals.length + visibleZerodose.length
 
+  const filterCount = (selectedFac ? 1 : 0) + (showRefusals ? 1 : 0) + (showZerodose ? 1 : 0)
+
   function handleSelect(name: string) {
-    setSelectedFac(prev => (prev === name ? null : name))
+    const isDeselect = name === selectedFac
+    const next = isDeselect ? null : name
+    setSelectedFac(next)
+    // Sync to URL — preserve non-facility params
+    const params = new URLSearchParams(searchParams.toString())
+    if (next) {
+      const match = data?.enumeration.find(r => r.facility_name === name)
+      if (match) params.set('facility', match.facility_id)
+      else params.delete('facility')
+    } else {
+      params.delete('facility')
+    }
+    const qs = params.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname)
   }
 
   function handleClear() {
     setSelectedFac(null)
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('facility')
+    const qs = params.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname)
   }
 
   function toggleHouseholds() { setShowHouseholds(v => !v) }
@@ -123,8 +156,10 @@ export function useMapState(data: DashboardData | null) {
     showHouseholds,
     toggleHouseholds,
     showRefusals,
+    setShowRefusals,
     toggleRefusals,
     showZerodose,
+    setShowZerodose,
     toggleZerodose,
     selectedReasons,
     toggleReason,
@@ -142,5 +177,8 @@ export function useMapState(data: DashboardData | null) {
     allReasonKeys,
     zeroDoseStatusCounts,
     totalVisible,
+    facilitySearch,
+    setFacilitySearch,
+    filterCount,
   }
 }

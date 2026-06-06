@@ -1,3 +1,5 @@
+export const DIGIT_ORANGE = '#F47738'
+
 export const REFUSAL_LABEL: Record<string, string> = {
   NOT_DECISION_MAKER: 'Not the decision maker',
   RELIGIOUS_BELIEFS: 'Religious beliefs',
