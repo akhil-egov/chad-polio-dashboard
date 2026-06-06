@@ -90,6 +90,89 @@ The dashboard has two orthogonal toggles, both persisted in URL params:
 
 ---
 
+## Map dot hover (BubbleMap)
+
+**Critical**: Leaflet `<Tooltip>` and `<Popup>` do NOT work on canvas-rendered CircleMarkers.
+Use the custom `DotHoverTracker` pattern instead — it listens to `mousemove` via `useMapEvents`,
+computes pixel distance from mouse to each dot, and sets a `hoveredDot` state that renders a
+plain `<div>` overlay (not a Leaflet layer).
+
+```
+DotHoverTracker (inside MapContainer)
+  → useMapEvents({ mousemove }) → pixel distance scan → setHoveredDot
+Overlay div (outside MapContainer, inside .flex-1.relative)
+  → positioned at hoveredDot.x / hoveredDot.y with transform
+```
+
+Hit radius threshold: **14px** (larger than dot radius 6, gives comfortable hover area).
+
+### GPS dot hover card content
+| Field | Public mode | Full mode |
+|-------|-------------|-----------|
+| Facility name | Bold header | Bold header |
+| User (team code) | Hidden | Shown in `#009FDB` |
+| Settlement type | Blue chip (URBAN/RURAL/SLUMS) | Plain text |
+| Member count | `N members` | `N members` |
+
+---
+
+## GPS data fields (gps sheet in data.json)
+
+| Field | Source ES path | Notes |
+|-------|---------------|-------|
+| `record_id` | `Data.household.id` | |
+| `lat` / `lng` | `Data.household.address.latitude/longitude` | Filtered 11–14 / 13–17 |
+| `facility_name` | `Data.boundaryHierarchy.healthFacility` | |
+| `settlement_type` | `Data.additionalDetails.settlementType` | URBAN/RURAL/SLUMS/NOMADS_PASTORALISTS |
+| `user_name` | `Data.userName` | Team code e.g. "LE-11" |
+| `member_count` | `Data.additionalDetails.memberCount` | Household size (int) |
+| `vaccinated` | Hardcoded `False` | All current records are household visits |
+
+---
+
+## Ingest pipeline — remote Jupyter
+
+The ingest pipeline runs on a **remote Jupyter server** at `campaigns.afro.who.int/jupyter`.
+It is NOT local. Path: `/HCM_CUSTOM_REPORTS/CHAD_POLIO_PILOT/DST/`
+
+Key files on remote:
+- `main.py` — orchestrates all extractors, writes timestamped Excel to `output/`
+- `extractors/gps.py` — GPS extraction (edit this to add new GPS fields)
+- `extractors/base.py` — ESClient, reads `ES_URL` + `ES_AUTH_HEADER` from env vars
+
+**To run the extractor from Jupyter:**
+```python
+import os
+os.environ["ES_URL"] = "https://elasticsearch-data.es-cluster:9200"
+os.environ["ES_AUTH_HEADER"] = "Basic ZWxhc3RpYzo2OGF0dU5FTXoycXpPUUVNS25RRUR6elk="
+
+from main import run
+run()
+```
+Always **Kernel → Restart** before running to clear cached imports.
+
+**Full data update workflow:**
+1. Edit extractor on remote Jupyter (e.g. `extractors/gps.py`)
+2. Restart kernel, run the cell above
+3. Download the new `output/chad_YYYYMMDD_HHMM.xlsx`
+4. On local: `python3 scripts/excel_to_json.py /path/to/chad_YYYYMMDD_HHMM.xlsx`
+5. `git add public/data.json && git commit -m "data: update to chad_YYYYMMDD_HHMM" && git push`
+
+---
+
+## Elasticsearch indices
+
+| Index | Used for |
+|-------|----------|
+| `chad-household-index-v1` | GPS, enumeration (household count), settlement, refusals |
+| `chad-project-beneficiary-index-v1` | Eligible children, demographics |
+| `chad-project-task-index-v1` | Vaccinated children, activity, stock |
+| `chad-user-action-location-capture-index-v1` | (not yet used) |
+
+Campaign ID: `CMP-2026-05-29-000091`
+
+---
+
 ## Timezone
 
 All timestamps display in **Africa/Ndjamena (UTC+1)**. Pass `timeZone: 'Africa/Ndjamena'` to every `toLocaleString` call that shows a time.
