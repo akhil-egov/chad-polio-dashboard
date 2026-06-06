@@ -8,12 +8,19 @@ import 'leaflet/dist/leaflet.css'
 import { IconArrowLeft } from '@tabler/icons-react'
 import { useDashboard } from '@/lib/dashboard-context'
 import { DateFilter } from '@/components/DateFilter'
-import type { GpsRow } from '@/lib/types'
+import type { GpsRow, GpsRefusalRow, GpsZeroDoseRow } from '@/lib/types'
 
 const ZOOM_THRESHOLD = 14
 
-const SETTLEMENT_LABEL: Record<string, string> = {
-  URBAN: 'Urban', RURAL: 'Rural', SLUMS: 'Slums', NOMADS_PASTORALISTS: 'Nomadic',
+const REFUSAL_LABEL: Record<string, string> = {
+  NOT_DECISION_MAKER: 'Not the decision maker',
+  RELIGIOUS_BELIEFS: 'Religious beliefs',
+  VACCINE_SIDE_EFFECTS: 'Concerns about side effects',
+  AFRICA_IS_POLIO_FREE: 'Believes Africa is polio-free',
+  TOO_MANY_DOSES: 'Too many doses',
+  CHILD_WAS_SICK: 'Child was sick',
+  CONCERNS_ABOUT_NOPV: 'Concerns about nOPV2',
+  CONCERNS_ABOUT_COVID19: 'COVID-19 concerns',
 }
 
 // ── Coverage thresholds ──────────────────────────────────────────────────────
@@ -49,8 +56,7 @@ const ADM2_STYLE: PathOptions = { color: '#94a3b8', weight: 0.8, fillOpacity: 0.
 const ADM2_HOVER: PathOptions = { color: '#1e40af', weight: 1.5, fillOpacity: 0.12, fillColor: '#bfdbfe' }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function onEachADM2(feature: any, layer: L.Layer) {
-  const name: string = feature.properties?.District ?? feature.properties?.RegName ?? ''
+function onEachADM2(_feature: any, layer: L.Layer) {
   if ('setStyle' in layer) {
     const path = layer as L.Path
     layer.on({
@@ -58,8 +64,15 @@ function onEachADM2(feature: any, layer: L.Layer) {
       mouseout() { path.setStyle(ADM2_STYLE) },
     })
   }
-  if (name) (layer as L.Layer & { bindTooltip(s: string, o?: object): void }).bindTooltip(name, { sticky: true })
 }
+
+// ── Typed dot union ──────────────────────────────────────────────────────────
+type AnyDot =
+  | { type: 'household'; row: GpsRow }
+  | { type: 'refusal'; row: GpsRefusalRow }
+  | { type: 'zerodose'; row: GpsZeroDoseRow }
+
+type HoveredDot = { dot: AnyDot; x: number; y: number }
 
 // ── Map sub-components ───────────────────────────────────────────────────────
 function ZoomWatcher({ onZoom }: { onZoom: (z: number) => void }) {
@@ -76,10 +89,10 @@ function FlyTo({ target }: { target: { pos: [number, number]; id: number } | nul
   return null
 }
 
-type HoveredDot = { loc: GpsRow; x: number; y: number }
-
-function DotHoverTracker({ locs, zoom, onHover }: {
-  locs: GpsRow[]
+// Canvas renderer incompatibility with Leaflet Tooltip/Popup — use pixel-distance
+// scan instead. Dots ordered household → zerodose → refusal so refusal wins on overlap.
+function DotHoverTracker({ dots, zoom, onHover }: {
+  dots: AnyDot[]
   zoom: number
   onHover: (dot: HoveredDot | null) => void
 }) {
@@ -88,16 +101,16 @@ function DotHoverTracker({ locs, zoom, onHover }: {
     mousemove(e) {
       if (zoom < ZOOM_THRESHOLD) { onHover(null); return }
       const mp = e.containerPoint
-      let nearest: GpsRow | null = null
-      let minDist = 14 // pixel hit radius
-      for (const loc of locs) {
-        const pt = map.latLngToContainerPoint([loc.lat, loc.lng])
+      let nearest: AnyDot | null = null
+      let minDist = 14
+      for (const dot of dots) {
+        const pt = map.latLngToContainerPoint([dot.row.lat, dot.row.lng])
         const d = Math.sqrt((pt.x - mp.x) ** 2 + (pt.y - mp.y) ** 2)
-        if (d < minDist) { minDist = d; nearest = loc }
+        if (d <= minDist) { minDist = d; nearest = dot }
       }
       if (nearest) {
-        const pt = map.latLngToContainerPoint([nearest.lat, nearest.lng])
-        onHover({ loc: nearest, x: pt.x, y: pt.y })
+        const pt = map.latLngToContainerPoint([nearest.row.lat, nearest.row.lng])
+        onHover({ dot: nearest, x: pt.x, y: pt.y })
       } else {
         onHover(null)
       }
@@ -110,7 +123,7 @@ function DotHoverTracker({ locs, zoom, onHover }: {
 
 // ── Main component ───────────────────────────────────────────────────────────
 export function BubbleMap({ onBack }: { onBack: () => void }) {
-  const { data, selectedDate, mode, t } = useDashboard()
+  const { data, mode, t } = useDashboard()
   const isPublic = mode === 'public'
 
   const canvasRenderer = useMemo(() => L.canvas({ padding: 0.5 }), [])
@@ -123,11 +136,76 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
   const [satOn, setSatOn] = useState(false)
   const [hoveredDot, setHoveredDot] = useState<HoveredDot | null>(null)
 
+  // Layer toggles
+  const [showHouseholds, setShowHouseholds] = useState(true)
+  const [showRefusals, setShowRefusals] = useState(false)
+  const [showZerodose, setShowZerodose] = useState(false)
+
+  // Sub-filters: null = all selected
+  const [selectedReasons, setSelectedReasons] = useState<Set<string> | null>(null)
+  const [selectedZdStatuses, setSelectedZdStatuses] = useState<Set<string> | null>(null)
+
   useEffect(() => {
     fetch('/adm1.geojson').then(r => r.json()).then(setAdm1).catch(() => null)
     fetch('/adm2.geojson').then(r => r.json()).then(setAdm2).catch(() => null)
   }, [])
 
+  // ── Counts for sub-filter labels ────────────────────────────────────────────
+  const refusalReasonCounts = useMemo(() => {
+    if (!data?.gps_refusals) return {} as Record<string, number>
+    const counts: Record<string, number> = {}
+    for (const r of data.gps_refusals) {
+      const k = r.reason_for_refusal ?? 'UNKNOWN'
+      counts[k] = (counts[k] ?? 0) + 1
+    }
+    return counts
+  }, [data])
+
+  const allReasonKeys = useMemo(() => Object.keys(refusalReasonCounts), [refusalReasonCounts])
+
+  const zeroDoseStatusCounts = useMemo(() => {
+    if (!data?.gps_zerodose) return { vaccinated: 0, not_vaccinated: 0 }
+    const c = { vaccinated: 0, not_vaccinated: 0 }
+    for (const z of data.gps_zerodose) {
+      if (z.administration_status === 'ADMINISTRATION_SUCCESS') c.vaccinated++
+      else c.not_vaccinated++
+    }
+    return c
+  }, [data])
+
+  // ── Toggle handlers ─────────────────────────────────────────────────────────
+  function toggleReasons() { setShowRefusals(v => !v) }
+  function toggleZerodose() { setShowZerodose(v => !v) }
+
+  function toggleReason(reason: string) {
+    setSelectedReasons(prev => {
+      const current = prev ?? new Set(allReasonKeys)
+      const next = new Set(current)
+      if (next.has(reason)) next.delete(reason)
+      else next.add(reason)
+      return next.size === allReasonKeys.length ? null : next
+    })
+  }
+
+  function isReasonChecked(reason: string) {
+    return selectedReasons === null || selectedReasons.has(reason)
+  }
+
+  function toggleZdStatus(key: string) {
+    setSelectedZdStatuses(prev => {
+      const current = prev ?? new Set(['vaccinated', 'not_vaccinated'])
+      const next = new Set(current)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next.size === 2 ? null : next
+    })
+  }
+
+  function isZdStatusChecked(key: string) {
+    return selectedZdStatuses === null || selectedZdStatuses.has(key)
+  }
+
+  // ── Visible dot sets ────────────────────────────────────────────────────────
   const centroids = useMemo(() => {
     if (!data) return new Map<string, [number, number]>()
     const acc = new Map<string, { latSum: number; lngSum: number; n: number }>()
@@ -158,12 +236,42 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
 
   const visibleBubbles = selectedFac ? facilities.filter(f => f.name === selectedFac) : facilities
 
-  const visibleLocs = useMemo(() => {
-    if (!data) return []
+  const visibleHouseholds = useMemo(() => {
+    if (!data || !showHouseholds) return []
     let locs = data.gps
     if (selectedFac) locs = locs.filter(l => l.facility_name === selectedFac)
     return locs
-  }, [data, selectedFac])
+  }, [data, selectedFac, showHouseholds])
+
+  const visibleRefusals = useMemo(() => {
+    if (!data || !showRefusals) return []
+    let locs = data.gps_refusals ?? []
+    if (selectedFac) locs = locs.filter(l => l.facility_name === selectedFac)
+    if (selectedReasons !== null) locs = locs.filter(l => selectedReasons.has(l.reason_for_refusal ?? 'UNKNOWN'))
+    return locs
+  }, [data, selectedFac, showRefusals, selectedReasons])
+
+  const visibleZerodose = useMemo(() => {
+    if (!data || !showZerodose) return []
+    let locs = data.gps_zerodose ?? []
+    if (selectedFac) locs = locs.filter(l => l.facility_name === selectedFac)
+    if (selectedZdStatuses !== null) {
+      locs = locs.filter(l => {
+        const key = l.administration_status === 'ADMINISTRATION_SUCCESS' ? 'vaccinated' : 'not_vaccinated'
+        return selectedZdStatuses.has(key)
+      })
+    }
+    return locs
+  }, [data, selectedFac, showZerodose, selectedZdStatuses])
+
+  // Combined for hover scanner — ordered so refusal wins on overlap
+  const allDots = useMemo<AnyDot[]>(() => [
+    ...visibleHouseholds.map(row => ({ type: 'household' as const, row })),
+    ...visibleZerodose.map(row => ({ type: 'zerodose' as const, row })),
+    ...visibleRefusals.map(row => ({ type: 'refusal' as const, row })),
+  ], [visibleHouseholds, visibleZerodose, visibleRefusals])
+
+  const totalVisible = visibleHouseholds.length + visibleRefusals.length + visibleZerodose.length
 
   function handleSelect(name: string) {
     setSelectedFac(name)
@@ -185,14 +293,13 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
         { color: '#C62828', label: '< 20% — Critical' },
       ]
 
-  const hasVaccinatedDots = useMemo(() => data?.gps.some(l => l.vaccinated) ?? false, [data])
-
-  const DOT_LEGEND = isPublic
-    ? [{ color: '#009FDB', label: 'Household' }]
-    : [
-        ...(hasVaccinatedDots ? [{ color: '#22c55e', label: t('Vaccinated') }] : []),
-        { color: '#ef4444', label: 'Household' },
-      ]
+  const activeDotLegend = useMemo(() => {
+    const items: { color: string; label: string }[] = []
+    if (showHouseholds) items.push({ color: isPublic ? '#009FDB' : '#ef4444', label: 'Household' })
+    if (showRefusals) items.push({ color: '#C62828', label: `Refusal (${visibleRefusals.length})` })
+    if (showZerodose) items.push({ color: '#F9A825', label: `Zero Dose (${visibleZerodose.length})` })
+    return items
+  }, [showHouseholds, showRefusals, showZerodose, isPublic, visibleRefusals.length, visibleZerodose.length])
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" }}>
@@ -277,17 +384,12 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
             {adm2 && <GeoJSON key="adm2" data={adm2} style={() => ADM2_STYLE} onEachFeature={onEachADM2} />}
             {adm1 && <GeoJSON key="adm1" data={adm1} style={() => ADM1_STYLE} />}
 
-            {/* Bubbles — shown when zoomed out */}
             {zoom < ZOOM_THRESHOLD && visibleBubbles.map(fac => {
               const pos = centroids.get(fac.name)
               if (!pos) return null
               return (
-                <Marker
-                  key={fac.name}
-                  position={pos}
-                  icon={makeBubbleIcon(fac.abbrev, fac.covPct, fac.records, fac.color)}
-                  eventHandlers={{ click: () => handleSelect(fac.name) }}
-                >
+                <Marker key={fac.name} position={pos} icon={makeBubbleIcon(fac.abbrev, fac.covPct, fac.records, fac.color)}
+                  eventHandlers={{ click: () => handleSelect(fac.name) }}>
                   <Popup>
                     <div style={{ minWidth: 160, fontFamily: 'system-ui, sans-serif' }}>
                       <div style={{ fontWeight: 700, fontSize: 13, color: '#003F72', marginBottom: 6 }}>{fac.name}</div>
@@ -301,84 +403,133 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
               )
             })}
 
-            {/* Dots — shown when zoomed in */}
-            {zoom >= ZOOM_THRESHOLD && visibleLocs.map((loc, i) => {
-              const fill = loc.vaccinated ? '#22c55e' : (isPublic ? '#009FDB' : '#ef4444')
-              const stroke = loc.vaccinated ? '#16a34a' : (isPublic ? '#0077a8' : '#dc2626')
+            {/* Household dots — neutralised in public mode */}
+            {zoom >= ZOOM_THRESHOLD && visibleHouseholds.map((loc, i) => {
+              const fill = isPublic ? '#009FDB' : (loc.vaccinated ? '#22c55e' : '#ef4444')
+              const stroke = isPublic ? '#0077a8' : (loc.vaccinated ? '#16a34a' : '#dc2626')
               return (
-                <CircleMarker key={i} center={[loc.lat, loc.lng]} radius={6}
+                <CircleMarker key={`h-${i}`} center={[loc.lat, loc.lng]} radius={6}
                   renderer={canvasRenderer}
                   pathOptions={{ color: stroke, fillColor: fill, fillOpacity: 0.8, weight: 1 }}
                 />
               )
             })}
 
-            <DotHoverTracker locs={visibleLocs} zoom={zoom} onHover={setHoveredDot} />
+            {/* Refusal dots — always #C62828, both modes */}
+            {zoom >= ZOOM_THRESHOLD && visibleRefusals.map((loc, i) => (
+              <CircleMarker key={`r-${i}`} center={[loc.lat, loc.lng]} radius={7}
+                renderer={canvasRenderer}
+                pathOptions={{ color: '#8B0000', fillColor: '#C62828', fillOpacity: 0.92, weight: 1.5 }}
+              />
+            ))}
+
+            {/* Zero-dose dots — always #F9A825, both modes */}
+            {zoom >= ZOOM_THRESHOLD && visibleZerodose.map((loc, i) => (
+              <CircleMarker key={`z-${i}`} center={[loc.lat, loc.lng]} radius={7}
+                renderer={canvasRenderer}
+                pathOptions={{ color: '#B37A00', fillColor: '#F9A825', fillOpacity: 0.92, weight: 1.5 }}
+              />
+            ))}
+
+            <DotHoverTracker dots={allDots} zoom={zoom} onHover={setHoveredDot} />
             <ZoomWatcher onZoom={setZoom} />
             <FlyTo target={flyTarget} />
           </MapContainer>
 
-          {/* Custom dot hover tooltip */}
+          {/* ── Hover card ── */}
           {hoveredDot && zoom >= ZOOM_THRESHOLD && (
             <div style={{
               position: 'absolute',
               left: hoveredDot.x,
               top: hoveredDot.y,
-              transform: 'translate(-50%, calc(-100% - 10px))',
+              transform: 'translate(-50%, calc(-100% - 12px))',
               zIndex: 900,
               pointerEvents: 'none',
               background: 'white',
               border: '1px solid #e2e8f0',
-              borderRadius: 6,
-              padding: '7px 10px',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.12)',
+              borderRadius: 8,
+              padding: '8px 12px',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.13)',
               fontFamily: 'system-ui, sans-serif',
-              minWidth: 140,
+              minWidth: 160,
+              maxWidth: 220,
               whiteSpace: 'nowrap',
             }}>
-              {isPublic ? (
-                <>
-                  <div style={{ fontWeight: 700, fontSize: 12, color: '#003F72', marginBottom: 5 }}>
-                    {hoveredDot.loc.facility_name}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    {hoveredDot.loc.settlement_type && (
-                      <span style={{ fontSize: 10, fontWeight: 700, background: '#e0f2fe', color: '#0369a1', borderRadius: 4, padding: '2px 6px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                        {SETTLEMENT_LABEL[hoveredDot.loc.settlement_type] ?? hoveredDot.loc.settlement_type}
-                      </span>
-                    )}
-                    {hoveredDot.loc.member_count != null && (
-                      <span style={{ fontSize: 10, color: '#64748b' }}>{hoveredDot.loc.member_count} members</span>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div style={{ fontWeight: 700, fontSize: 12, color: '#003F72', marginBottom: 4 }}>
-                    {hoveredDot.loc.facility_name}
-                  </div>
-                  {hoveredDot.loc.user_name && (
-                    <div style={{ fontSize: 11, color: '#009FDB', fontWeight: 600, marginBottom: 3 }}>
-                      {hoveredDot.loc.user_name}
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', gap: 8, fontSize: 10, color: '#64748b' }}>
-                    {hoveredDot.loc.settlement_type && (
-                      <span>{SETTLEMENT_LABEL[hoveredDot.loc.settlement_type] ?? hoveredDot.loc.settlement_type}</span>
-                    )}
-                    {hoveredDot.loc.member_count != null && (
-                      <span>{hoveredDot.loc.member_count} members</span>
-                    )}
-                  </div>
-                </>
-              )}
+              {hoveredDot.dot.type === 'household' && <HouseholdCard loc={hoveredDot.dot.row} isPublic={isPublic} />}
+              {hoveredDot.dot.type === 'refusal' && <RefusalCard loc={hoveredDot.dot.row} isPublic={isPublic} />}
+              {hoveredDot.dot.type === 'zerodose' && <ZeroDoseCard loc={hoveredDot.dot.row} isPublic={isPublic} />}
             </div>
           )}
+
+          {/* ── Layer panel ── */}
+          <div className="absolute top-3 left-3 z-[800] bg-white/97 border border-gray-200 rounded-xl shadow-md overflow-hidden" style={{ minWidth: 196, maxHeight: 420, overflowY: 'auto' }}>
+
+            {/* Households row */}
+            <LayerRow
+              color={isPublic ? '#009FDB' : '#ef4444'}
+              label="Households"
+              count={data?.gps.length}
+              active={showHouseholds}
+              onToggle={() => setShowHouseholds(v => !v)}
+            />
+
+            {/* Refusals row + reason sub-filters */}
+            <LayerRow
+              color="#C62828"
+              label="Refusals"
+              count={data?.gps_refusals?.length}
+              active={showRefusals}
+              onToggle={toggleReasons}
+            />
+            {showRefusals && (
+              <div className="bg-red-50/60 border-t border-red-100/60 px-3 py-2 space-y-1">
+                {Object.entries(refusalReasonCounts)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([reason, count]) => (
+                    <SubCheck
+                      key={reason}
+                      checked={isReasonChecked(reason)}
+                      label={REFUSAL_LABEL[reason] ?? reason}
+                      count={count}
+                      color="#C62828"
+                      onToggle={() => toggleReason(reason)}
+                    />
+                  ))}
+              </div>
+            )}
+
+            {/* Zero Dose row + status sub-filters */}
+            <LayerRow
+              color="#F9A825"
+              label="Zero Dose"
+              count={data?.gps_zerodose?.length}
+              active={showZerodose}
+              onToggle={toggleZerodose}
+            />
+            {showZerodose && (
+              <div className="bg-amber-50/60 border-t border-amber-100/60 px-3 py-2 space-y-1">
+                <SubCheck
+                  checked={isZdStatusChecked('not_vaccinated')}
+                  label="Not yet vaccinated"
+                  count={zeroDoseStatusCounts.not_vaccinated}
+                  color="#C62828"
+                  onToggle={() => toggleZdStatus('not_vaccinated')}
+                />
+                <SubCheck
+                  checked={isZdStatusChecked('vaccinated')}
+                  label="Vaccinated ✓"
+                  count={zeroDoseStatusCounts.vaccinated}
+                  color="#16a34a"
+                  onToggle={() => toggleZdStatus('vaccinated')}
+                />
+              </div>
+            )}
+          </div>
 
           {/* Stats bar */}
           <div className="absolute top-3 right-14 z-[800] flex gap-1.5 pointer-events-none">
             <div className="bg-white/95 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-600 shadow-sm whitespace-nowrap">
-              <b>{visibleLocs.length.toLocaleString()}</b> records visible
+              <b>{totalVisible.toLocaleString()}</b> records visible
             </div>
           </div>
 
@@ -408,11 +559,11 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
                 {label}
               </div>
             ))}
-            {zoom >= ZOOM_THRESHOLD && (
+            {zoom >= ZOOM_THRESHOLD && activeDotLegend.length > 0 && (
               <>
                 <hr className="my-1.5 border-gray-100" />
                 <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">GPS dots</div>
-                {DOT_LEGEND.map(({ color, label }) => (
+                {activeDotLegend.map(({ color, label }) => (
                   <div key={label} className="flex items-center gap-1.5 mb-1 text-gray-600">
                     <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
                     {label}
@@ -426,5 +577,146 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
         </div>
       </div>
     </div>
+  )
+}
+
+// ── Layer panel sub-components ───────────────────────────────────────────────
+
+function LayerRow({ color, label, count, active, onToggle }: {
+  color: string; label: string; count?: number; active: boolean; onToggle: () => void
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors border-b border-gray-100 focus-visible:ring-2 focus-visible:ring-[#009FDB] ${active ? 'bg-white' : 'bg-gray-50/60'}`}
+    >
+      <div className="w-3 h-3 rounded-full flex-shrink-0 border border-white/50 shadow-sm transition-colors"
+        style={{ background: active ? color : '#d1d5db' }} />
+      <span className={`text-xs font-semibold flex-1 ${active ? 'text-gray-800' : 'text-gray-400'}`}>{label}</span>
+      {count != null && (
+        <span className={`text-[10px] ${active ? 'text-gray-400' : 'text-gray-300'}`}>{count.toLocaleString()}</span>
+      )}
+      <span className={`text-[10px] font-medium ml-1 ${active ? 'text-gray-500' : 'text-gray-300'}`}>
+        {active ? 'ON' : 'OFF'}
+      </span>
+    </button>
+  )
+}
+
+function SubCheck({ checked, label, count, color, onToggle }: {
+  checked: boolean; label: string; count: number; color: string; onToggle: () => void
+}) {
+  return (
+    <label className="flex items-center gap-2 cursor-pointer group">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onToggle}
+        className="w-3 h-3 rounded border-gray-300 cursor-pointer focus-visible:ring-2 focus-visible:ring-[#009FDB]"
+        style={{ accentColor: color }}
+      />
+      <span className={`text-[10px] flex-1 transition-colors ${checked ? 'text-gray-700' : 'text-gray-400'}`}>
+        {label}
+      </span>
+      <span className={`text-[10px] font-semibold tabular-nums ${checked ? 'text-gray-500' : 'text-gray-300'}`}>
+        {count}
+      </span>
+    </label>
+  )
+}
+
+// ── Hover card sub-components ────────────────────────────────────────────────
+
+function HouseholdCard({ loc, isPublic }: { loc: GpsRow; isPublic: boolean }) {
+  const hasVaccData = loc.vaccinated_count != null
+  const vaccinated = loc.vaccinated_count ?? 0
+  return (
+    <>
+      <div style={{ fontWeight: 700, fontSize: 12, color: '#003F72', marginBottom: 4 }}>
+        {loc.facility_name}
+      </div>
+      {!isPublic && loc.user_name && (
+        <div style={{ fontSize: 11, color: '#009FDB', fontWeight: 600, marginBottom: 4 }}>
+          {loc.user_name}
+        </div>
+      )}
+      {loc.member_count != null && (
+        <div style={{ fontSize: 11, color: '#64748b', marginBottom: hasVaccData ? 5 : 0 }}>
+          {loc.member_count} {loc.member_count === 1 ? 'member' : 'members'}
+        </div>
+      )}
+      {hasVaccData && (
+        <div style={{
+          fontSize: 11, fontWeight: 700,
+          color: vaccinated > 0 ? '#16a34a' : '#C62828',
+          borderTop: '1px solid #f1f5f9', paddingTop: 5,
+        }}>
+          {vaccinated > 0 ? `✓ ${vaccinated} children vaccinated` : '✗ None vaccinated'}
+        </div>
+      )}
+    </>
+  )
+}
+
+function RefusalCard({ loc, isPublic }: { loc: GpsRefusalRow; isPublic: boolean }) {
+  const reasonLabel = loc.reason_for_refusal
+    ? (REFUSAL_LABEL[loc.reason_for_refusal] ?? loc.reason_for_refusal)
+    : null
+  return (
+    <>
+      <div style={{ fontWeight: 700, fontSize: 12, color: '#003F72', marginBottom: 4 }}>
+        {loc.facility_name}
+      </div>
+      {!isPublic && loc.user_name && (
+        <div style={{ fontSize: 11, color: '#009FDB', fontWeight: 600, marginBottom: 4 }}>
+          {loc.user_name}
+        </div>
+      )}
+      {loc.member_count != null && (
+        <div style={{ fontSize: 11, color: '#64748b', marginBottom: reasonLabel ? 5 : 0 }}>
+          {loc.member_count} {loc.member_count === 1 ? 'member' : 'members'}
+        </div>
+      )}
+      {reasonLabel && (
+        <div style={{
+          fontSize: 11, fontWeight: 600, color: '#C62828',
+          borderTop: '1px solid #fee2e2', paddingTop: 5, marginTop: loc.member_count != null ? 0 : 4,
+          whiteSpace: 'normal', lineHeight: 1.35,
+        }}>
+          {reasonLabel}
+        </div>
+      )}
+    </>
+  )
+}
+
+function ZeroDoseCard({ loc, isPublic }: { loc: GpsZeroDoseRow; isPublic: boolean }) {
+  const vaccinated = loc.administration_status === 'ADMINISTRATION_SUCCESS'
+  const ageLabel = loc.age_months != null ? `${Math.round(loc.age_months)} months` : null
+  const genderLabel = loc.gender
+    ? loc.gender.charAt(0).toUpperCase() + loc.gender.slice(1).toLowerCase()
+    : null
+  const ageLine = [ageLabel, genderLabel].filter(Boolean).join(' · ')
+  return (
+    <>
+      <div style={{ fontWeight: 700, fontSize: 12, color: '#003F72', marginBottom: 4 }}>
+        {loc.facility_name}
+      </div>
+      {!isPublic && loc.user_name && (
+        <div style={{ fontSize: 11, color: '#009FDB', fontWeight: 600, marginBottom: 4 }}>
+          {loc.user_name}
+        </div>
+      )}
+      {ageLine && (
+        <div style={{ fontSize: 11, color: '#64748b', marginBottom: 5 }}>{ageLine}</div>
+      )}
+      <div style={{
+        fontSize: 11, fontWeight: 700,
+        color: vaccinated ? '#16a34a' : '#C62828',
+        borderTop: '1px solid #f1f5f9', paddingTop: 5,
+      }}>
+        {vaccinated ? '✓ Vaccinated' : '✗ Not yet vaccinated'}
+      </div>
+    </>
   )
 }

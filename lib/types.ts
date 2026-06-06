@@ -53,8 +53,38 @@ export interface GpsRow {
   facility_id: string
   vaccinated: boolean
   settlement_type: string | null
+  settlement_name: string | null
   user_name: string | null
   member_count: number | null
+  vaccinated_count: number | null  // children vaccinated at this household (from task index)
+}
+
+export interface GpsRefusalRow {
+  record_id: string
+  lat: number
+  lng: number
+  facility_name: string
+  facility_id: string
+  settlement_name: string | null
+  settlement_type: string | null
+  user_name: string | null
+  member_count: number | null
+  reason_for_refusal: string | null
+  reason_not_vaccinated: string | null
+}
+
+export interface GpsZeroDoseRow {
+  record_id: string
+  lat: number
+  lng: number
+  facility_name: string
+  facility_id: string
+  settlement_name: string | null
+  settlement_type: string | null
+  user_name: string | null
+  age_months: number | null
+  gender: string | null
+  administration_status: string | null
 }
 
 export interface MicroplanRow {
@@ -104,6 +134,8 @@ export interface DashboardData {
   enumeration: EnumerationRow[]
   stock: StockRow[]
   gps: GpsRow[]
+  gps_refusals: GpsRefusalRow[]
+  gps_zerodose: GpsZeroDoseRow[]
   microplan: MicroplanRow[]
   settlement: SettlementRow[]
   demographics: DemographicsRow[]
