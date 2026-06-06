@@ -57,7 +57,9 @@ The dashboard has two orthogonal toggles, both persisted in URL params:
 | Gap numbers (MicroplanTable) | → `text-slate-700` (neutral) |
 | Team Activity tab | Hidden |
 | Map bubble colours (coverage tiers) | → single `#009FDB` |
-| Map dots (unenumerated, red) | → `#009FDB` |
+| Map household dots | → `#009FDB` |
+| Map refusal dots | Keep `#C62828` — categorical, not performance |
+| Map zero-dose dots | Keep `#F9A825` — categorical, not performance |
 
 **Never remove Teams Reporting column** — it stays visible in both modes.
 
@@ -107,12 +109,44 @@ Overlay div (outside MapContainer, inside .flex-1.relative)
 Hit radius threshold: **14px** (larger than dot radius 6, gives comfortable hover area).
 
 ### GPS dot hover card content
+
+Three dot types, each with its own hover card. Settlement type and settlement name
+are intentionally **not shown** — removed as operationally irrelevant.
+
+**Household dot**
 | Field | Public mode | Full mode |
 |-------|-------------|-----------|
 | Facility name | Bold header | Bold header |
 | User (team code) | Hidden | Shown in `#009FDB` |
-| Settlement type | Blue chip (URBAN/RURAL/SLUMS) | Plain text |
 | Member count | `N members` | `N members` |
+| Vaccinated count | `✓ N children vaccinated` / `✗ None vaccinated` | same |
+
+**Refusal dot** (always `#C62828`)
+| Field | Public mode | Full mode |
+|-------|-------------|-----------|
+| Facility name | Bold header | Bold header |
+| User (team code) | Hidden | Shown in `#009FDB` |
+| Member count | `N members` | `N members` |
+| Reason | Human-readable label in red | same |
+
+**Zero-dose dot** (always `#F9A825`)
+| Field | Public mode | Full mode |
+|-------|-------------|-----------|
+| Facility name | Bold header | Bold header |
+| User (team code) | Hidden | Shown in `#009FDB` |
+| Age + gender | `54 months · Male` | same |
+| Status | `✓ Vaccinated` / `✗ Not yet vaccinated` | same |
+
+### Layer toggles + cascaded filters
+- **Households** toggle (default ON): no sub-filters
+- **Refusals** toggle (default OFF): expands multi-select checkboxes per reason code, sorted by count
+- **Zero Dose** toggle (default OFF): expands `Not yet vaccinated (N)` + `Vaccinated ✓ (N)` checkboxes
+- Priority when dots overlap: refusal > zero-dose > household (scan order in `DotHoverTracker`)
+
+### Puppeteer cannot trigger Leaflet hover cards
+Leaflet's `useMapEvents` does not fire from synthetic DOM `MouseEvent`s dispatched
+by Puppeteer. Hover card correctness must be verified by manually mousing over
+dots in a real browser — do not waste time trying to automate this.
 
 ---
 
@@ -124,9 +158,39 @@ Hit radius threshold: **14px** (larger than dot radius 6, gives comfortable hove
 | `lat` / `lng` | `Data.household.address.latitude/longitude` | Filtered 11–14 / 13–17 |
 | `facility_name` | `Data.boundaryHierarchy.healthFacility` | |
 | `settlement_type` | `Data.additionalDetails.settlementType` | URBAN/RURAL/SLUMS/NOMADS_PASTORALISTS |
+| `settlement_name` | `Data.boundaryHierarchy.settlement` | Neighbourhood/quartier |
 | `user_name` | `Data.userName` | Team code e.g. "LE-11" |
 | `member_count` | `Data.additionalDetails.memberCount` | Household size (int) |
 | `vaccinated` | Hardcoded `False` | All current records are household visits |
+| `vaccinated_count` | task-index join on GPS coords | Children with `ADMINISTRATION_SUCCESS` at this location. **Tech debt**: `householdId` is null on task records so join uses rounded lat/lng (5dp ≈ 1m). Fix when backend populates `householdId`. |
+
+## GPS data fields (gps_refusals sheet)
+
+| Field | Source ES path | Notes |
+|-------|---------------|-------|
+| `record_id` | `Data.household.id` | |
+| `lat` / `lng` | `Data.household.address.latitude/longitude` | |
+| `facility_name` | `Data.boundaryHierarchy.healthFacility` | |
+| `settlement_type` | `Data.additionalDetails.settlementType` | |
+| `settlement_name` | `Data.boundaryHierarchy.settlement` | |
+| `user_name` | `Data.userName` | |
+| `member_count` | `Data.additionalDetails.memberCount` | |
+| `reason_for_refusal` | `Data.additionalDetails.reasonForRefusal` | Raw code — see `REFUSAL_LABEL` in BubbleMap.tsx |
+| `reason_not_vaccinated` | `Data.additionalDetails.reasonNotVaccinated` | |
+
+## GPS data fields (gps_zerodose sheet)
+
+| Field | Source ES path | Notes |
+|-------|---------------|-------|
+| `record_id` | `hit["_id"]` | Task index doc ID |
+| `lat` / `lng` | `Data.additionalDetails.lat/lng` | String coords parsed in extractor |
+| `facility_name` | `Data.boundaryHierarchy.healthFacility` | |
+| `settlement_type` | `Data.additionalDetails.settlementType` | |
+| `settlement_name` | `Data.boundaryHierarchy.settlement` | |
+| `user_name` | `Data.userName` | |
+| `age_months` | `Data.additionalDetails.age` | Int |
+| `gender` | `Data.additionalDetails.gender` | MALE / FEMALE |
+| `administration_status` | `Data.administrationStatus` | `ADMINISTRATION_SUCCESS` = vaccinated |
 
 ---
 
@@ -137,8 +201,17 @@ It is NOT local. Path: `/HCM_CUSTOM_REPORTS/CHAD_POLIO_PILOT/DST/`
 
 Key files on remote:
 - `main.py` — orchestrates all extractors, writes timestamped Excel to `output/`
-- `extractors/gps.py` — GPS extraction (edit this to add new GPS fields)
-- `extractors/base.py` — ESClient, reads `ES_URL` + `ES_AUTH_HEADER` from env vars
+- `extractors/gps.py` — GPS extraction + vaccination count join
+- `extractors/gps_refusals.py` — refusal household dots
+- `extractors/gps_zerodose.py` — zero-dose child dots
+- `extractors/base.py` — ESClient (`es.query()` and `es.scroll()` — NOT `es.search()`)
+
+**When editing extractors on Jupyter, always write the file via a cell — never paste raw Python:**
+```python
+content = '''...file contents...'''
+with open("extractors/gps.py", "w") as f:
+    f.write(content)
+```
 
 **To run the extractor from Jupyter:**
 ```python
