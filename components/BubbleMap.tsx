@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { MapContainer, TileLayer, CircleMarker, GeoJSON, Marker, Popup, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import type { GeoJsonObject } from 'geojson'
@@ -117,6 +117,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
   const [adm2, setAdm2] = useState<GeoJsonObject | null>(null)
   const [satOn, setSatOn] = useState(false)
   const [hoveredDot, setHoveredDot] = useState<HoveredDot | null>(null)
+  const mapContainerRef = useRef<HTMLDivElement>(null)
 
   const {
     selectedFac,
@@ -248,32 +249,35 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
             <div className="text-[11px] text-gray-400 mt-0.5">Worst coverage first · click to isolate</div>
           </div>
 
-          <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e5e7eb transparent' }}>
-            {facilities.map(fac => {
-              const sel = selectedFac === fac.name
-              return (
-                <div
-                  key={fac.name}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => handleSelect(fac.name)}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelect(fac.name) } }}
-                  className={`flex items-stretch cursor-pointer border-b border-gray-50 h-14 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#009FDB] ${sel ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
-                >
-                  <div className="flex-shrink-0 transition-all" style={{ background: fac.color, width: sel ? '6px' : '4px' }} />
-                  <div className="flex-1 px-3 py-2 min-w-0 flex flex-col justify-center">
-                    <div className={`text-[12px] font-semibold truncate ${sel ? 'text-blue-700' : 'text-gray-800'}`}>{fac.name}</div>
-                    <div className="text-[12px] font-semibold mt-0.5" style={{ color: fac.color }}>
-                      {fac.covPct.toFixed(1)}% <span className="text-gray-400 font-normal text-[10px]">coverage</span>
+          <div className="relative flex-1 overflow-hidden">
+            <div className="h-full overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e5e7eb transparent' }}>
+              {facilities.map(fac => {
+                const sel = selectedFac === fac.name
+                return (
+                  <div
+                    key={fac.name}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleSelect(fac.name)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelect(fac.name) } }}
+                    className={`flex items-stretch cursor-pointer border-b border-gray-50 h-14 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#009FDB] ${sel ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                  >
+                    <div className="flex-shrink-0 transition-all" style={{ background: fac.color, width: sel ? '6px' : '4px' }} />
+                    <div className="flex-1 px-3 py-2 min-w-0 flex flex-col justify-center">
+                      <div className={`text-[12px] font-semibold truncate ${sel ? 'text-blue-700' : 'text-gray-800'}`}>{fac.name}</div>
+                      <div className="text-[12px] font-semibold mt-0.5" style={{ color: fac.color }}>
+                        {fac.covPct.toFixed(1)}% <span className="text-gray-400 font-normal text-[10px]">coverage</span>
+                      </div>
+                    </div>
+                    <div className="px-3 py-2 text-right flex flex-col justify-center flex-shrink-0">
+                      <div className="text-[13px] font-semibold text-gray-800">{fac.records.toLocaleString()}</div>
+                      <div className="text-[10px] text-gray-500 mt-0.5">target pop.</div>
                     </div>
                   </div>
-                  <div className="px-3 py-2 text-right flex flex-col justify-center flex-shrink-0">
-                    <div className="text-[13px] font-semibold text-gray-800">{fac.records.toLocaleString()}</div>
-                    <div className="text-[10px] text-gray-500 mt-0.5">target pop.</div>
-                  </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
+            <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent" />
           </div>
 
           {selectedFac && (
@@ -286,7 +290,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
         </div>
 
         {/* ── Map ── */}
-        <div className="flex-1 relative min-w-0">
+        <div ref={mapContainerRef} className="flex-1 relative min-w-0">
           <MapContainer center={DEFAULT_CENTER} zoom={DEFAULT_ZOOM} className="absolute inset-0" style={{ zIndex: 0 }}>
             <TileLayer
               key={satOn ? 'sat' : 'osm'}
@@ -351,34 +355,55 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
           </MapContainer>
 
           {/* ── Hover card ── */}
-          {hoveredDot && zoom >= ZOOM_THRESHOLD && (
-            <div style={{
-              position: 'absolute',
-              left: hoveredDot.x,
-              top: hoveredDot.y,
-              transform: 'translate(-50%, calc(-100% - 12px))',
-              zIndex: 900,
-              pointerEvents: 'none',
-              background: 'white',
-              border: '1px solid #e2e8f0',
-              borderRadius: 8,
-              padding: '8px 12px',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.13)',
-              fontFamily: 'system-ui, sans-serif',
-              minWidth: 160,
-              maxWidth: 220,
-              whiteSpace: 'nowrap',
-            }}>
-              {hoveredDot.dot.type === 'household' && <HouseholdCard loc={hoveredDot.dot.row} showTeam={vis.showTeamInHover} />}
-              {hoveredDot.dot.type === 'refusal' && <RefusalCard loc={hoveredDot.dot.row} showTeam={vis.showTeamInHover} />}
-              {hoveredDot.dot.type === 'zerodose' && <ZeroDoseCard loc={hoveredDot.dot.row} showTeam={vis.showTeamInHover} />}
-            </div>
-          )}
+          {hoveredDot && zoom >= ZOOM_THRESHOLD && (() => {
+            const mapWidth = mapContainerRef.current?.offsetWidth ?? window.innerWidth - 290
+            const x = hoveredDot.x
+            const y = hoveredDot.y
+            let transform = 'translate(-50%, calc(-100% - 12px))'
+            if (x > mapWidth - 160) {
+              transform = 'translate(-100%, calc(-100% - 12px))'
+            } else if (y < 120) {
+              transform = 'translate(-50%, 12px)'
+            } else if (x < 260) {
+              transform = 'translate(12px, -50%)'
+            }
+            return (
+              <div style={{
+                position: 'absolute',
+                left: x,
+                top: y,
+                transform,
+                zIndex: 900,
+                pointerEvents: 'none',
+                background: 'white',
+                border: '1px solid #e2e8f0',
+                borderRadius: 8,
+                padding: '8px 12px',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.13)',
+                fontFamily: 'system-ui, sans-serif',
+                minWidth: 160,
+                maxWidth: 220,
+                whiteSpace: 'nowrap',
+              }}>
+                {hoveredDot.dot.type === 'household' && <HouseholdCard loc={hoveredDot.dot.row} showTeam={vis.showTeamInHover} />}
+                {hoveredDot.dot.type === 'refusal' && <RefusalCard loc={hoveredDot.dot.row} showTeam={vis.showTeamInHover} />}
+                {hoveredDot.dot.type === 'zerodose' && <ZeroDoseCard loc={hoveredDot.dot.row} showTeam={vis.showTeamInHover} />}
+              </div>
+            )
+          })()}
+
+          {/*
+           * Map overlay z-index hierarchy (React divs only — do not touch leaflet-pane classes):
+           *   Coverage legend:      z-[800]  — bottom-left, always below panel
+           *   Layer toggle panel:   z-[810]  — top-left, must sit above legend
+           *   Stats bar + sat btn:  z-[810]  — top-right, same tier as panel
+           *   Hover card:           z-[900]  — topmost, floats over everything
+           */}
 
           {/* ── Layer panel ── */}
           <div
-            className="absolute top-3 left-3 z-[800] bg-white/97 border border-gray-200 rounded-xl shadow-md overflow-hidden"
-            style={{ minWidth: 196, maxHeight: 420, overflowY: 'auto' }}
+            className="absolute top-3 left-3 z-[810] bg-white/97 border border-gray-200 rounded-xl shadow-md overflow-hidden"
+            style={{ minWidth: 196, maxHeight: 'calc(100vh - 52px - 32px)', overflowY: 'auto' }}
           >
             <LayerRow
               color={vis.dotColor(false)}
