@@ -1,5 +1,4 @@
 'use client'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useDashboard } from '@/lib/dashboard-context'
 
 interface Delta {
@@ -7,39 +6,60 @@ interface Delta {
   isGood: boolean
 }
 
-function DeltaRow({ delta }: { delta: Delta | null }) {
-  if (!delta) return <p className="text-xs text-gray-300 mt-1">—</p>
+function DeltaChip({ delta }: { delta: Delta | null }) {
+  if (!delta) {
+    return <span className="font-data text-[10px] text-slate-300 tracking-wide">— no prior day</span>
+  }
   const sign = delta.value >= 0 ? '+' : ''
-  const color = delta.isGood ? 'text-green-600' : 'text-red-500'
-  const arrow = delta.isGood ? '↑' : '↓'
+  const good = delta.isGood
   return (
-    <p className={`text-xs mt-1 font-medium ${color}`}>
-      {arrow} {sign}{delta.value.toLocaleString()} vs yesterday
-    </p>
+    <span
+      className={`font-data text-[10px] font-medium tracking-wide ${
+        good ? 'text-green-600' : 'text-red-500'
+      }`}
+    >
+      {good ? '↑' : '↓'} {sign}{delta.value.toLocaleString()} vs yesterday
+    </span>
   )
 }
 
 function KPICard({
-  title, value, sub, color, valueColor, delta,
+  title,
+  value,
+  sub,
+  accentColor,
+  valueColor,
+  delta,
 }: {
   title: string
   value: string
   sub: string
-  color: string
+  accentColor: string
   valueColor?: string
   delta?: Delta | null
 }) {
   return (
-    <Card className={`border-l-4 ${color}`}>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-gray-500">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className={`text-3xl font-bold ${valueColor ?? ''}`}>{value}</div>
-        <p className="text-xs text-gray-400 mt-1">{sub}</p>
-        <DeltaRow delta={delta ?? null} />
-      </CardContent>
-    </Card>
+    <div className="relative bg-white border border-slate-200 rounded-md overflow-hidden flex flex-col shadow-sm">
+      {/* Top accent bar */}
+      <div className="h-[3px] w-full flex-none" style={{ background: accentColor }} />
+
+      <div className="p-5 flex flex-col gap-3 flex-1">
+        <p className="font-condensed text-[10px] font-bold tracking-[0.22em] uppercase text-slate-400">
+          {title}
+        </p>
+
+        <div
+          className={`font-data text-[2rem] font-bold leading-none tracking-tight ${valueColor ?? 'text-slate-800'}`}
+        >
+          {value}
+        </div>
+
+        <div className="flex flex-col gap-1 mt-auto">
+          <p className="text-[11px] text-slate-400">{sub}</p>
+          <DeltaChip delta={delta ?? null} />
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -53,14 +73,12 @@ export function KPICards() {
   const { data, selectedDate } = useDashboard()
   if (!data) return null
 
-  // Reference date for "today" in Teams Reporting
   const allActivityDates = data.userActivity.map(r => r.date)
   const maxActivityDate = allActivityDates.length > 0
     ? allActivityDates.reduce((a, b) => (a > b ? a : b))
     : null
   const refDate = selectedDate ?? maxActivityDate
 
-  // Daily summary aggregates
   const rows = selectedDate
     ? data.dailySummary.filter(r => r.date === selectedDate)
     : data.dailySummary
@@ -68,23 +86,25 @@ export function KPICards() {
     enumerated: acc.enumerated + r.total_eligible_children,
     vaccinated: acc.vaccinated + r.total_vaccinated,
     missed: acc.missed + r.total_missed,
-    wastage: acc.wastage + (r.total_stock_issued - r.total_stock_returned),
-  }), { enumerated: 0, vaccinated: 0, missed: 0, wastage: 0 })
+  }), { enumerated: 0, vaccinated: 0, missed: 0 })
 
   const pct = t.enumerated > 0 ? Math.round((t.vaccinated / t.enumerated) * 100) : 0
 
-  // Teams reporting
   const allTeams = new Set(data.userActivity.map(r => r.user_name))
   const todayTeams = new Set(
     data.userActivity.filter(r => r.date === refDate).map(r => r.user_name)
   )
   const teamsPct = allTeams.size > 0 ? todayTeams.size / allTeams.size : 0
-  const teamsColor = teamsPct < 0.6 ? 'text-red-600' : teamsPct < 0.8 ? 'text-amber-500' : ''
+  const teamsColor =
+    teamsPct < 0.6 ? 'text-red-600' : teamsPct < 0.8 ? 'text-amber-600' : 'text-slate-800'
 
-  // Delta computation (only when selectedDate is set)
-  let deltas: { enumerated: Delta | null; vaccinated: Delta | null; missed: Delta | null; teams: Delta | null } = {
-    enumerated: null, vaccinated: null, missed: null, teams: null,
-  }
+  let deltas: {
+    enumerated: Delta | null
+    vaccinated: Delta | null
+    missed: Delta | null
+    teams: Delta | null
+  } = { enumerated: null, vaccinated: null, missed: null, teams: null }
+
   if (selectedDate) {
     const pd = prevDate(selectedDate)
     const prevRows = data.dailySummary.filter(r => r.date === pd)
@@ -96,7 +116,6 @@ export function KPICards() {
       }), { enumerated: 0, vaccinated: 0, missed: 0 })
 
       const prevTeams = new Set(data.userActivity.filter(r => r.date === pd).map(r => r.user_name))
-
       deltas = {
         enumerated: { value: t.enumerated - p.enumerated, isGood: t.enumerated >= p.enumerated },
         vaccinated: { value: t.vaccinated - p.vaccinated, isGood: t.vaccinated >= p.vaccinated },
@@ -112,28 +131,30 @@ export function KPICards() {
         title="Children Enumerated"
         value={t.enumerated.toLocaleString()}
         sub="Eligible 0–59m found"
-        color="border-blue-500"
+        accentColor="#009FDB"
         delta={deltas.enumerated}
       />
       <KPICard
         title="Vaccinated"
         value={`${t.vaccinated.toLocaleString()} (${pct}%)`}
         sub="Coverage vs enumerated"
-        color="border-green-500"
+        accentColor="#16a34a"
+        valueColor={pct >= 80 ? 'text-green-700' : pct >= 50 ? 'text-amber-600' : 'text-slate-800'}
         delta={deltas.vaccinated}
       />
       <KPICard
         title="Missed Children"
         value={t.missed.toLocaleString()}
-        sub="Enumerated but not vaccinated"
-        color="border-red-500"
+        sub="Need revisit"
+        accentColor="#dc2626"
+        valueColor={t.missed > 0 ? 'text-red-600' : 'text-slate-800'}
         delta={deltas.missed}
       />
       <KPICard
         title="Teams Reporting"
         value={`${todayTeams.size} / ${allTeams.size}`}
-        sub="teams active today"
-        color="border-purple-500"
+        sub="Active today"
+        accentColor="#7c3aed"
         valueColor={teamsColor}
         delta={deltas.teams}
       />

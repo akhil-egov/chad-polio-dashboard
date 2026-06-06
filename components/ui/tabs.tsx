@@ -46,7 +46,7 @@ function TabsList({ className, children }: { className?: string; children: React
     <div
       role="tablist"
       className={cn(
-        'inline-flex h-9 items-center gap-1 rounded-lg bg-gray-100 p-1',
+        'flex items-end gap-0 border-b border-slate-200',
         className
       )}
     >
@@ -64,10 +64,12 @@ function TabsTrigger({ value, className, children }: { value: string; className?
       aria-selected={active}
       onClick={() => ctx.onValueChange(value)}
       className={cn(
-        'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all outline-none',
+        'font-condensed relative inline-flex items-center justify-center whitespace-nowrap',
+        'px-5 py-3 text-[11px] font-bold tracking-[0.18em] uppercase',
+        'border-b-2 -mb-px transition-colors outline-none',
         active
-          ? 'bg-white text-gray-900 shadow-sm'
-          : 'text-gray-500 hover:text-gray-700',
+          ? 'border-[#009FDB] text-[#003F72]'
+          : 'border-transparent text-slate-400 hover:text-slate-600',
         className
       )}
     >
@@ -80,7 +82,7 @@ function TabsContent({ value, className, children }: { value: string; className?
   const ctx = useTabs()
   if (ctx.value !== value) return null
   return (
-    <div role="tabpanel" className={cn('mt-4', className)}>
+    <div role="tabpanel" className={cn('mt-5', className)}>
       {children}
     </div>
   )

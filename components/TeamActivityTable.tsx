@@ -1,13 +1,5 @@
 'use client'
 import { useDashboard } from '@/lib/dashboard-context'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 
 function parseSync(s: string): Date {
   return new Date(s.replace(' ', 'T'))
@@ -27,42 +19,62 @@ export function TeamActivityTable() {
       a.user_name.localeCompare(b.user_name)
     )
 
+  const thClass =
+    'px-4 py-3 text-left font-condensed text-[9px] font-bold tracking-[0.18em] uppercase text-slate-500 whitespace-nowrap'
+
   return (
-    <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Health Facility</TableHead>
-            <TableHead>User</TableHead>
-            <TableHead>Date</TableHead>
-            <TableHead className="text-right">Enum. Records</TableHead>
-            <TableHead className="text-right">Eligible Children</TableHead>
-            <TableHead className="text-right">Vaccinated</TableHead>
-            <TableHead>Last Sync</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
+    <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-sm">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-slate-200 bg-slate-50">
+            <th className={thClass}>Health Facility</th>
+            <th className={thClass}>User</th>
+            <th className={thClass}>Date</th>
+            <th className={`${thClass} text-right`}>Enum. Records</th>
+            <th className={`${thClass} text-right`}>Eligible Children</th>
+            <th className={`${thClass} text-right`}>Vaccinated</th>
+            <th className={thClass}>Last Sync</th>
+          </tr>
+        </thead>
+        <tbody>
           {rows.map((r, i) => {
             const syncMs = parseSync(r.last_sync_time).getTime()
             const stale = nowMs - syncMs > SIX_HOURS
             const time = r.last_sync_time.split(' ')[1]?.slice(0, 5) ?? r.last_sync_time
             return (
-              <TableRow key={i}>
-                <TableCell className="font-medium">{r.health_facility}</TableCell>
-                <TableCell>{r.user_name}</TableCell>
-                <TableCell className="text-gray-500">{r.date}</TableCell>
-                <TableCell className="text-right">{r.enumeration_records.toLocaleString()}</TableCell>
-                <TableCell className="text-right">{r.eligible_children.toLocaleString()}</TableCell>
-                <TableCell className="text-right">{r.vaccinated.toLocaleString()}</TableCell>
-                <TableCell className={stale ? 'text-red-600 font-medium' : 'text-gray-600'}>
+              <tr
+                key={i}
+                className={`border-b border-slate-100 hover:bg-[#f0f7fd] transition-colors ${
+                  i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'
+                }`}
+              >
+                <td className="px-4 py-3 font-medium text-[13px] text-slate-800">
+                  {r.health_facility}
+                </td>
+                <td className="px-4 py-3 text-[13px] text-slate-600">{r.user_name}</td>
+                <td className="px-4 py-3 font-data text-[11px] text-slate-400">{r.date}</td>
+                <td className="px-4 py-3 text-right font-data text-[12px] text-slate-600">
+                  {r.enumeration_records.toLocaleString()}
+                </td>
+                <td className="px-4 py-3 text-right font-data text-[12px] text-slate-600">
+                  {r.eligible_children.toLocaleString()}
+                </td>
+                <td className="px-4 py-3 text-right font-data text-[12px] text-green-700 font-semibold">
+                  {r.vaccinated.toLocaleString()}
+                </td>
+                <td className={`px-4 py-3 font-data text-[11px] ${stale ? 'text-red-600' : 'text-slate-500'}`}>
                   {time}
-                  {stale && ' ⚠'}
-                </TableCell>
-              </TableRow>
+                  {stale && (
+                    <span className="ml-1.5 text-[9px] font-bold tracking-[0.1em] uppercase text-red-500 align-middle">
+                      stale
+                    </span>
+                  )}
+                </td>
+              </tr>
             )
           })}
-        </TableBody>
-      </Table>
+        </tbody>
+      </table>
     </div>
   )
 }

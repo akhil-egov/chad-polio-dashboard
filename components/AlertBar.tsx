@@ -4,7 +4,6 @@ import { IconAlertTriangle, IconX } from '@tabler/icons-react'
 import { useDashboard } from '@/lib/dashboard-context'
 
 function parseSync(s: string): Date {
-  // "YYYY-MM-DD HH:MM:SS" — not ISO, needs space→T replacement
   return new Date(s.replace(' ', 'T'))
 }
 
@@ -15,8 +14,8 @@ export function AlertBar() {
   if (!data || dismissed) return null
 
   const nowMs = Date.now()
+  const SIX_HOURS = 6 * 60 * 60 * 1000
 
-  // Per user: most recent sync
   const latestByUser = new Map<string, number>()
   for (const r of data.userActivity) {
     const t = parseSync(r.last_sync_time).getTime()
@@ -26,8 +25,6 @@ export function AlertBar() {
     }
   }
 
-  // Silent = > 6 hours behind "now"
-  const SIX_HOURS = 6 * 60 * 60 * 1000
   type Silent = { hf: string; user: string; hoursAgo: number }
   const silent: Silent[] = []
   for (const [key, t] of latestByUser) {
@@ -40,7 +37,6 @@ export function AlertBar() {
 
   if (silent.length === 0) return null
 
-  // Group by HF
   const byHF = new Map<string, Silent[]>()
   for (const s of silent) {
     if (!byHF.has(s.hf)) byHF.set(s.hf, [])
@@ -48,23 +44,29 @@ export function AlertBar() {
   }
 
   return (
-    <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-800">
-      <IconAlertTriangle className="mt-0.5 shrink-0 text-red-500" size={18} />
-      <div className="flex-1">
-        <span className="font-semibold">Silent teams (&gt;6h no sync): </span>
+    <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-md px-4 py-3">
+      <IconAlertTriangle className="mt-px shrink-0 text-red-500" size={15} />
+      <div className="flex-1 min-w-0 text-sm text-red-800">
+        <span className="font-condensed text-[10px] font-bold tracking-[0.2em] uppercase text-red-600 mr-2">
+          Silent Teams (&gt;6h no sync)
+        </span>
         {Array.from(byHF.entries()).map(([hf, members], i) => {
           const maxHours = Math.max(...members.map(m => m.hoursAgo))
           const names = members.map(m => m.user).join(', ')
           return (
             <span key={hf}>
-              {i > 0 && ' · '}
-              <strong>{hf}</strong> ({names}) — {maxHours}h ago
+              {i > 0 && <span className="text-red-300 mx-1">·</span>}
+              <strong className="font-semibold">{hf}</strong>
+              {' '}({names}) — {maxHours}h ago
             </span>
           )
         })}
       </div>
-      <button onClick={() => setDismissed(true)} className="shrink-0 text-red-400 hover:text-red-600">
-        <IconX size={16} />
+      <button
+        onClick={() => setDismissed(true)}
+        className="shrink-0 text-red-400 hover:text-red-600 transition-colors"
+      >
+        <IconX size={14} />
       </button>
     </div>
   )
