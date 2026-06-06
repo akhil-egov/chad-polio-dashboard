@@ -279,3 +279,19 @@ The screenshot is the source of truth.
 - AlertBar visible in full mode, hidden in public mode
 - Team Activity tab visible in full mode, hidden in public mode
 
+---
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues at `akhil-egov/chad-polio-dashboard`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-state workflow (`needs-triage` → `needs-info` / `ready-for-agent` / `ready-for-human` / `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at repo root. See `docs/agents/domain.md`.
+
