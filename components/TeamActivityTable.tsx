@@ -2,7 +2,7 @@
 import { useDashboard } from '@/lib/dashboard-context'
 
 export function TeamActivityTable() {
-  const { data, selectedDate } = useDashboard()
+  const { data, selectedDate, t } = useDashboard()
   if (!data) return null
 
   const rows = data.activity
@@ -12,18 +12,18 @@ export function TeamActivityTable() {
       (a.user_name ?? '').localeCompare(b.user_name ?? '')
     )
 
-  const thClass = 'px-4 py-3 text-left font-condensed text-[9px] font-bold tracking-[0.18em] uppercase text-slate-500 whitespace-nowrap'
+  const thClass = 'px-4 py-3 text-left font-condensed text-[10px] font-bold tracking-[0.18em] uppercase text-slate-500 whitespace-nowrap'
 
   return (
     <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-sm">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50">
-            <th className={thClass}>Health Facility</th>
-            <th className={thClass}>User</th>
-            <th className={thClass}>Date</th>
-            <th className={`${thClass} text-right`}>Tasks</th>
-            <th className={thClass}>Last Sync</th>
+            <th className={thClass}>{t('Health Facility')}</th>
+            <th className={thClass}>{t('User')}</th>
+            <th className={thClass}>{t('Date')}</th>
+            <th className={`${thClass} text-right`}>{t('Tasks')}</th>
+            <th className={thClass}>{t('Last Sync')}</th>
           </tr>
         </thead>
         <tbody>
@@ -36,7 +36,7 @@ export function TeamActivityTable() {
               <td className={`px-4 py-3 font-data text-[11px] ${r.is_inactive ? 'text-red-600' : 'text-slate-500'}`}>
                 {r.last_sync ? r.last_sync.slice(11, 16) : '—'}
                 {r.is_inactive && (
-                  <span className="ml-1.5 text-[9px] font-bold tracking-[0.1em] uppercase text-red-500 align-middle">stale</span>
+                  <span className="ml-1.5 text-[10px] font-bold tracking-[0.1em] uppercase text-red-500 align-middle">{t('stale')}</span>
                 )}
               </td>
             </tr>

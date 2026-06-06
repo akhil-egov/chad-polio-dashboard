@@ -6,10 +6,9 @@ function formatReason(code: string): string {
 }
 
 export function RefusalsTable() {
-  const { data } = useDashboard()
+  const { data, t } = useDashboard()
   if (!data) return null
 
-  // Aggregate by reason across all facilities
   const byReason = new Map<string, number>()
   for (const r of data.refusals) {
     byReason.set(r.reason_code, (byReason.get(r.reason_code) ?? 0) + r.count)
@@ -18,7 +17,6 @@ export function RefusalsTable() {
   const grandTotal = reasonTotals.reduce((s, [, c]) => s + c, 0)
   const maxCount = reasonTotals[0]?.[1] ?? 1
 
-  // Per-facility grouped: facility -> reason -> count
   const byFacility = new Map<string, { facility_id: string; reasons: Map<string, number>; total: number }>()
   for (const r of data.refusals) {
     if (!byFacility.has(r.facility_name)) {
@@ -35,7 +33,7 @@ export function RefusalsTable() {
       {/* Summary by reason */}
       <div className="bg-white border border-slate-200 rounded-md shadow-sm p-5">
         <h3 className="font-condensed text-[10px] font-bold tracking-[0.22em] uppercase text-[#009FDB] mb-4">
-          Refusal Reasons — Campaign Total ({grandTotal.toLocaleString()})
+          {t('Refusal Reasons — Campaign Total')} ({grandTotal.toLocaleString()})
         </h3>
         <div className="space-y-3">
           {reasonTotals.map(([code, count]) => (
@@ -59,13 +57,13 @@ export function RefusalsTable() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50">
-              <th className="px-4 py-3 text-left font-condensed text-[9px] font-bold tracking-[0.18em] uppercase text-slate-500">Facility</th>
+              <th className="px-4 py-3 text-left font-condensed text-[10px] font-bold tracking-[0.18em] uppercase text-slate-500">{t('Facility')}</th>
               {reasonTotals.map(([code]) => (
-                <th key={code} className="px-3 py-3 text-center font-condensed text-[9px] font-bold tracking-[0.12em] uppercase text-slate-500 whitespace-nowrap">
+                <th key={code} className="px-3 py-3 text-center font-condensed text-[10px] font-bold tracking-[0.12em] uppercase text-slate-500 whitespace-nowrap">
                   {formatReason(code)}
                 </th>
               ))}
-              <th className="px-4 py-3 text-right font-condensed text-[9px] font-bold tracking-[0.18em] uppercase text-slate-500">Total</th>
+              <th className="px-4 py-3 text-right font-condensed text-[10px] font-bold tracking-[0.18em] uppercase text-slate-500">Total</th>
             </tr>
           </thead>
           <tbody>

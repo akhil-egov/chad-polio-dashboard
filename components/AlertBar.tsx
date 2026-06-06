@@ -4,9 +4,10 @@ import { IconAlertTriangle, IconX } from '@tabler/icons-react'
 import { useDashboard } from '@/lib/dashboard-context'
 
 export function AlertBar() {
-  const { data } = useDashboard()
+  const { data, mode, t } = useDashboard()
   const [dismissed, setDismissed] = useState(false)
 
+  if (mode === 'public') return null
   if (!data || dismissed || data.inactive_users.length === 0) return null
 
   const byHF = new Map<string, { users: string[]; maxHours: number }>()
@@ -22,13 +23,13 @@ export function AlertBar() {
       <IconAlertTriangle className="mt-px shrink-0 text-red-500" size={15} />
       <div className="flex-1 min-w-0 text-sm text-red-800">
         <span className="font-condensed text-[10px] font-bold tracking-[0.2em] uppercase text-red-600 mr-2">
-          Silent Teams (&gt;6h no sync)
+          {t('Silent Teams (>6h no sync)')}
         </span>
         {Array.from(byHF.entries()).map(([hf, { users, maxHours }], i) => (
           <span key={hf}>
             {i > 0 && <span className="text-red-300 mx-1">·</span>}
             <strong className="font-semibold">{hf}</strong>
-            {' '}({users.join(', ')}) — {maxHours}h ago
+            {' '}({users.join(', ')}) — {maxHours}{t('h ago')}
           </span>
         ))}
       </div>

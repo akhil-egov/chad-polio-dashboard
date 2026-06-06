@@ -19,18 +19,23 @@ function coverageInfo(pct: number) {
   return { color: '#C62828', label: '< 20% — Critical' }
 }
 
-// ── Bubble icon factory ──────────────────────────────────────────────────────
+// ── Bubble icon factory (cached) ─────────────────────────────────────────────
+const _iconCache = new Map<string, L.DivIcon>()
 function makeBubbleIcon(abbrev: string, covPct: number, records: number, color: string) {
+  const key = `${abbrev}|${covPct.toFixed(1)}|${records}|${color}`
+  if (_iconCache.has(key)) return _iconCache.get(key)!
   const r = Math.max(26, Math.min(62, Math.sqrt(records) * 3.4))
   const sz = Math.round(r * 2)
   const fs1 = sz > 56 ? 10 : 9
   const fs2 = sz > 56 ? 13 : 11
-  return L.divIcon({
+  const icon = L.divIcon({
     className: '',
     html: `<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${color};border:3px solid rgba(255,255,255,0.9);box-shadow:0 2px 12px rgba(0,0,0,0.28);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;"><div style="font-size:${fs1}px;font-weight:700;color:rgba(255,255,255,0.92);line-height:1.1;text-align:center;padding:0 3px;white-space:nowrap;">${abbrev}</div><div style="font-size:${fs2}px;font-weight:800;color:#fff;margin-top:1px;letter-spacing:-.3px;">${covPct.toFixed(1)}%</div></div>`,
     iconSize: [sz, sz],
     iconAnchor: [sz / 2, sz / 2],
   })
+  _iconCache.set(key, icon)
+  return icon
 }
 
 // ── Boundary styles ──────────────────────────────────────────────────────────
@@ -68,7 +73,10 @@ function FlyTo({ target }: { target: { pos: [number, number]; id: number } | nul
 
 // ── Main component ───────────────────────────────────────────────────────────
 export function BubbleMap({ onBack }: { onBack: () => void }) {
-  const { data, selectedDate } = useDashboard()
+  const { data, selectedDate, mode, t } = useDashboard()
+  const isPublic = mode === 'public'
+
+  const canvasRenderer = useMemo(() => L.canvas({ padding: 0.5 }), [])
 
   const [zoom, setZoom] = useState(12)
   const [selectedFac, setSelectedFac] = useState<string | null>(null)
@@ -106,11 +114,11 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
         name: r.facility_name,
         records: r.households_registered,
         covPct,
-        color,
+        color: isPublic ? '#009FDB' : color,
         abbrev: r.facility_name.replace(/^CS\s+/i, ''),
       }
     }).sort((a, b) => a.covPct - b.covPct)
-  }, [data])
+  }, [data, isPublic])
 
   const visibleBubbles = selectedFac ? facilities.filter(f => f.name === selectedFac) : facilities
 
@@ -132,17 +140,24 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
     setFlyTarget(null)
   }
 
-  const LEGEND_TIERS = [
-    { color: '#2E7D32', label: '≥ 60% — On track' },
-    { color: '#F9A825', label: '≥ 40% — Active' },
-    { color: '#E65100', label: '≥ 20% — Low' },
-    { color: '#C62828', label: '< 20% — Critical' },
-  ]
+  const LEGEND_TIERS = isPublic
+    ? [{ color: '#009FDB', label: 'Health facility' }]
+    : [
+        { color: '#2E7D32', label: '≥ 60% — On track' },
+        { color: '#F9A825', label: '≥ 40% — Active' },
+        { color: '#E65100', label: '≥ 20% — Low' },
+        { color: '#C62828', label: '< 20% — Critical' },
+      ]
 
-  const DOT_LEGEND = [
-    { color: '#22c55e', label: 'Vaccinated' },
-    { color: '#ef4444', label: 'Enumerated only' },
-  ]
+  const DOT_LEGEND = isPublic
+    ? [
+        { color: '#22c55e', label: t('Vaccinated') },
+        { color: '#009FDB', label: t('Children Enumerated') },
+      ]
+    : [
+        { color: '#22c55e', label: t('Vaccinated') },
+        { color: '#ef4444', label: 'Enumerated only' },
+      ]
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" }}>
@@ -151,7 +166,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
       <div className="h-[52px] flex-shrink-0 flex items-center justify-between px-5 border-b border-gray-200 bg-white z-10 gap-4">
         <div className="flex items-center gap-3 min-w-0">
           <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 shrink-0 transition-colors">
-            <IconArrowLeft size={16} /> Back
+            <IconArrowLeft size={16} /> {t('← Back').replace('← ', '')}
           </button>
           <div className="w-px h-5 bg-gray-200" />
           <span className="bg-blue-800 text-white text-[10px] font-bold px-2 py-0.5 rounded shrink-0 tracking-wide">WHO AFRO</span>
@@ -163,7 +178,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
           <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 whitespace-nowrap">
             <span className="inline-block w-[7px] h-[7px] rounded-full bg-green-700 mr-1.5" />
             {data?._metadata.run_timestamp
-              ? new Date(data._metadata.run_timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+              ? new Date(data._metadata.run_timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Africa/Ndjamena' })
               : '—'} · {data?.gps.length.toLocaleString()} records
           </div>
         </div>
@@ -248,10 +263,11 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
 
             {/* Dots — shown when zoomed in */}
             {zoom >= ZOOM_THRESHOLD && visibleLocs.map((loc, i) => {
-              const fill = loc.vaccinated ? '#22c55e' : '#ef4444'
-              const stroke = loc.vaccinated ? '#16a34a' : '#dc2626'
+              const fill = loc.vaccinated ? '#22c55e' : (isPublic ? '#009FDB' : '#ef4444')
+              const stroke = loc.vaccinated ? '#16a34a' : (isPublic ? '#0077a8' : '#dc2626')
               return (
                 <CircleMarker key={i} center={[loc.lat, loc.lng]} radius={4}
+                  renderer={canvasRenderer}
                   pathOptions={{ color: stroke, fillColor: fill, fillOpacity: 0.8, weight: 1 }}>
                   <Popup>{loc.facility_name} · {loc.record_type}</Popup>
                 </CircleMarker>
@@ -288,7 +304,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
 
           {/* Legend */}
           <div className="absolute bottom-6 left-3 z-[800] bg-white/96 border border-gray-200 rounded-lg px-3 py-2.5 shadow text-xs min-w-[170px]">
-            <div className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Coverage status</div>
+            <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Coverage status</div>
             {LEGEND_TIERS.map(({ color, label }) => (
               <div key={label} className="flex items-center gap-1.5 mb-1 text-gray-600">
                 <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
@@ -298,7 +314,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
             {zoom >= ZOOM_THRESHOLD && (
               <>
                 <hr className="my-1.5 border-gray-100" />
-                <div className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">GPS dots</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">GPS dots</div>
                 {DOT_LEGEND.map(({ color, label }) => (
                   <div key={label} className="flex items-center gap-1.5 mb-1 text-gray-600">
                     <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
