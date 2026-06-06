@@ -66,7 +66,7 @@ function TabsTrigger({ value, className, children }: { value: string; className?
       className={cn(
         'font-condensed relative inline-flex items-center justify-center whitespace-nowrap',
         'px-5 py-3 text-[11px] font-bold tracking-[0.18em] uppercase',
-        'border-b-2 -mb-px transition-colors outline-none',
+        'border-b-2 -mb-px transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#009FDB]',
         active
           ? 'border-[#009FDB] text-[#003F72]'
           : 'border-transparent text-slate-500 hover:text-slate-600',

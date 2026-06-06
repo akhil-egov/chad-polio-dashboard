@@ -219,7 +219,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
       {/* ── Header ── */}
       <div className="h-[52px] flex-shrink-0 flex items-center justify-between px-5 border-b border-gray-200 bg-white z-10 gap-4">
         <div className="flex items-center gap-3 min-w-0">
-          <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 shrink-0 transition-colors">
+          <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#009FDB]">
             <IconArrowLeft size={16} /> {t('← Back').replace('← ', '')}
           </button>
           <div className="w-px h-5 bg-gray-200" />
@@ -254,8 +254,11 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
               return (
                 <div
                   key={fac.name}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => handleSelect(fac.name)}
-                  className={`flex items-stretch cursor-pointer border-b border-gray-50 h-14 transition-colors ${sel ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelect(fac.name) } }}
+                  className={`flex items-stretch cursor-pointer border-b border-gray-50 h-14 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#009FDB] ${sel ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
                 >
                   <div className="flex-shrink-0 transition-all" style={{ background: fac.color, width: sel ? '6px' : '4px' }} />
                   <div className="flex-1 px-3 py-2 min-w-0 flex flex-col justify-center">
@@ -275,7 +278,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
 
           {selectedFac && (
             <div className="flex-shrink-0 border-t border-gray-200">
-              <button onClick={handleClear} className="w-full h-10 bg-white hover:bg-gray-50 text-sm text-blue-700 font-medium transition-colors">
+              <button onClick={handleClear} className="w-full h-10 bg-white hover:bg-gray-50 text-sm text-blue-700 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#009FDB]">
                 ✕ Show all facilities
               </button>
             </div>
@@ -457,7 +460,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
           <div className="absolute top-3 right-3 z-[800]">
             <button
               onClick={() => setSatOn(s => !s)}
-              className="bg-white/95 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
+              className="bg-white/95 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#009FDB]"
             >
               {satOn ? '🗺 Street' : '🛰 Satellite'}
             </button>
@@ -506,7 +509,7 @@ function LayerRow({ color, label, count, active, onToggle }: {
   return (
     <button
       onClick={onToggle}
-      className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors border-b border-gray-100 focus-visible:ring-2 focus-visible:ring-[#009FDB] ${active ? 'bg-white' : 'bg-gray-50/60'}`}
+      className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors border-b border-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#009FDB] ${active ? 'bg-white' : 'bg-gray-50/60'}`}
     >
       <div
         className="w-3 h-3 rounded-full flex-shrink-0 border border-white/50 shadow-sm transition-colors"

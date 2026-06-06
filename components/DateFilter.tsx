@@ -27,9 +27,9 @@ export function DateFilter({ hideLabel }: { hideLabel?: boolean } = {}) {
   return (
     <div className="flex items-center gap-2 flex-wrap">
       {!hideLabel && <span className="text-sm font-medium text-gray-500">{t('Day:')}</span>}
-      <Button variant={!selectedDate ? 'default' : 'outline'} size="sm" onClick={() => setSelectedDate(null)}>{t('All')}</Button>
+      <Button variant={!selectedDate ? 'default' : 'outline'} size="sm" onClick={() => setSelectedDate(null)} className="focus-visible:ring-2 focus-visible:ring-[#009FDB]">{t('All')}</Button>
       {dates.map(d => (
-        <Button key={d.value} variant={selectedDate === d.value ? 'default' : 'outline'} size="sm" onClick={() => setSelectedDate(d.value)}>
+        <Button key={d.value} variant={selectedDate === d.value ? 'default' : 'outline'} size="sm" onClick={() => setSelectedDate(d.value)} className="focus-visible:ring-2 focus-visible:ring-[#009FDB]">
           {d.label}
         </Button>
       ))}
