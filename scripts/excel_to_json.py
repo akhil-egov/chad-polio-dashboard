@@ -60,6 +60,18 @@ def convert(xlsx_path: str, out_path: str):
     gps['vaccinated'] = gps['vaccinated'].astype(bool)
     data['gps'] = rows(gps)
 
+    # gps_refusals
+    if 'gps_refusals' in xl.sheet_names:
+        data['gps_refusals'] = rows(xl.parse('gps_refusals'))
+    else:
+        data['gps_refusals'] = []
+
+    # gps_zerodose
+    if 'gps_zerodose' in xl.sheet_names:
+        data['gps_zerodose'] = rows(xl.parse('gps_zerodose'))
+    else:
+        data['gps_zerodose'] = []
+
     # microplan
     data['microplan'] = rows(xl.parse('microplan'))
 
