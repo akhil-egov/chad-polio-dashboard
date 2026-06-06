@@ -28,6 +28,8 @@ interface Props {
   onToggleZdStatus: (key: string) => void
   isReasonChecked: (reason: string) => boolean
   isZdStatusChecked: (key: string) => boolean
+  onSelectAllReasons: () => void
+  onSelectAllZdStatuses: () => void
 }
 
 export function LayerPanel({
@@ -38,6 +40,7 @@ export function LayerPanel({
   onToggleHouseholds, onToggleRefusals, onToggleZerodose,
   onToggleReason, onToggleZdStatus,
   isReasonChecked, isZdStatusChecked,
+  onSelectAllReasons, onSelectAllZdStatuses,
 }: Props) {
   return (
     <div
@@ -61,6 +64,11 @@ export function LayerPanel({
       />
       {showRefusals && (
         <div className="bg-red-50/60 border-t border-red-100/60 px-3 py-2 space-y-1">
+          {selectedReasons !== null && (
+            <button onClick={onSelectAllReasons} className="text-[10px] text-[#009FDB] hover:underline w-full text-left mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#009FDB]">
+              Select all
+            </button>
+          )}
           {Object.entries(refusalReasonCounts)
             .sort((a, b) => b[1] - a[1])
             .map(([reason, count]) => (
@@ -85,6 +93,11 @@ export function LayerPanel({
       />
       {showZerodose && (
         <div className="bg-amber-50/60 border-t border-amber-100/60 px-3 py-2 space-y-1">
+          {selectedZdStatuses !== null && (
+            <button onClick={onSelectAllZdStatuses} className="text-[10px] text-[#009FDB] hover:underline w-full text-left mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#009FDB]">
+              Select all
+            </button>
+          )}
           <SubCheck
             checked={isZdStatusChecked('not_vaccinated')}
             label="Not yet vaccinated"

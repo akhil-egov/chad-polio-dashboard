@@ -46,7 +46,7 @@ export function RefusalsTable() {
                 />
               </div>
               <div className="w-12 text-right font-data text-[12px] font-semibold text-slate-700">{count}</div>
-              <div className="w-10 text-right font-data text-[10px] text-slate-400">{((count / grandTotal) * 100).toFixed(0)}%</div>
+              <div className="w-10 text-right font-data text-[10px] text-slate-500">{((count / grandTotal) * 100).toFixed(0)}%</div>
             </div>
           ))}
         </div>
@@ -71,7 +71,7 @@ export function RefusalsTable() {
               <tr key={facility_name} className={`border-b border-slate-100 hover:bg-[#f0f7fd] transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}`}>
                 <td className="px-4 py-3">
                   <div className="font-medium text-[13px] text-slate-800">{facility_name}</div>
-                  <div className="font-data text-[10px] text-slate-400 mt-0.5">{facility_id}</div>
+                  <div className="font-data text-[10px] text-slate-500 mt-0.5">{facility_id}</div>
                 </td>
                 {reasonTotals.map(([code]) => {
                   const count = reasons.get(code) ?? 0

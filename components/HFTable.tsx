@@ -134,7 +134,7 @@ export function HFTable() {
                 </td>
                 <td className="px-4 py-3"><CoverageBar pct={r.pct_complete} isPublic={isPublic} /></td>
                 <td className="px-4 py-3">
-                  <span className={`font-data text-[13px] font-semibold ${r.missed > 0 ? 'text-slate-700' : 'text-slate-400'}`}>{r.missed.toLocaleString()}</span>
+                  <span className={`font-data text-[13px] font-semibold ${r.missed > 0 ? 'text-slate-700' : 'text-slate-500'}`}>{r.missed.toLocaleString()}</span>
                 </td>
                 <td className="px-4 py-3">
                   <span className={`font-data text-[12px] font-medium flex items-center gap-1.5 ${partial ? 'text-amber-600' : 'text-slate-500'}`}>

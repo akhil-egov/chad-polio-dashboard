@@ -34,7 +34,7 @@ export function StockTable() {
     return asc ? <IconChevronUp size={12} className="inline ml-0.5 opacity-50" /> : <IconChevronDown size={12} className="inline ml-0.5 opacity-50" />
   }
 
-  const th = 'px-4 py-3 text-left font-condensed text-[10px] font-bold tracking-[0.18em] uppercase text-slate-500 cursor-pointer select-none hover:text-[#009FDB] transition-colors whitespace-nowrap'
+  const th = 'px-4 py-3 text-left font-condensed text-[10px] font-bold tracking-[0.18em] uppercase text-slate-500 cursor-pointer select-none hover:text-[#009FDB] transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#009FDB] focus-visible:ring-inset'
   const thStatic = 'px-4 py-3 text-left font-condensed text-[10px] font-bold tracking-[0.18em] uppercase text-slate-500'
 
   return (
@@ -77,7 +77,7 @@ export function StockTable() {
                 <tr key={r.facility_name} className={`border-b border-slate-100 hover:bg-[#f0f7fd] transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}`}>
                   <td className="px-4 py-3">
                     <div className="font-medium text-[13px] text-slate-800">{r.facility_name}</div>
-                    <div className="font-data text-[10px] text-slate-400 mt-0.5">{r.facility_id}</div>
+                    <div className="font-data text-[10px] text-slate-500 mt-0.5">{r.facility_id}</div>
                   </td>
                   <td className="px-4 py-3 font-data text-[13px] text-slate-700">{r.vials_issued.toLocaleString()}</td>
                   <td className="px-4 py-3 font-data text-[13px] text-slate-500">{r.vials_returned.toLocaleString()}</td>

@@ -69,7 +69,7 @@ function TabsTrigger({ value, className, children }: { value: string; className?
         'border-b-2 -mb-px transition-colors outline-none',
         active
           ? 'border-[#009FDB] text-[#003F72]'
-          : 'border-transparent text-slate-400 hover:text-slate-600',
+          : 'border-transparent text-slate-500 hover:text-slate-600',
         className
       )}
     >

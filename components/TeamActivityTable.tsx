@@ -31,7 +31,7 @@ export function TeamActivityTable() {
             <tr key={i} className={`border-b border-slate-100 hover:bg-[#f0f7fd] transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}`}>
               <td className="px-4 py-3 font-medium text-[13px] text-slate-800">{r.facility_name}</td>
               <td className="px-4 py-3 text-[13px] text-slate-600">{r.user_name}</td>
-              <td className="px-4 py-3 font-data text-[11px] text-slate-400">{r.date}</td>
+              <td className="px-4 py-3 font-data text-[11px] text-slate-500">{r.date}</td>
               <td className="px-4 py-3 text-right font-data text-[12px] text-slate-600">{r.task_count.toLocaleString()}</td>
               <td className={`px-4 py-3 font-data text-[11px] ${r.is_inactive ? 'text-red-600' : 'text-slate-500'}`}>
                 {r.last_sync ? r.last_sync.slice(11, 16) : '—'}

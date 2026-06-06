@@ -38,7 +38,7 @@ export function DemographicsPanel() {
               <p className="font-condensed text-[10px] font-bold tracking-[0.2em] uppercase text-slate-500">{t(labelKey)}</p>
               <p className="font-data text-[1.5rem] font-bold text-slate-800 leading-none mt-1">{value.toLocaleString()}</p>
               {grandTotal > 0 && labelKey !== 'Total Vaccinated' && (
-                <p className="font-data text-[10px] text-slate-400 mt-1">{((value / grandTotal) * 100).toFixed(1)}%</p>
+                <p className="font-data text-[10px] text-slate-500 mt-1">{((value / grandTotal) * 100).toFixed(1)}%</p>
               )}
             </div>
           </div>

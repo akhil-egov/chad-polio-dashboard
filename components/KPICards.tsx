@@ -5,7 +5,7 @@ import { useDashboard } from '@/lib/dashboard-context'
 interface Delta { value: number; isGood: boolean }
 
 function DeltaChip({ delta, isPublic, t }: { delta: Delta | null; isPublic: boolean; t: (k: string) => string }) {
-  if (!delta) return <span className="font-data text-[10px] text-slate-400 tracking-wide">— {t('no prior day')}</span>
+  if (!delta) return <span className="font-data text-[10px] text-slate-500 tracking-wide">— {t('no prior day')}</span>
   const sign = delta.value >= 0 ? '+' : ''
   if (isPublic) {
     return (

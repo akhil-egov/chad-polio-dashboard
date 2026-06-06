@@ -33,7 +33,7 @@ export function SettlementPanel() {
             <div key={r.settlement_type} className="bg-white border border-slate-200 rounded-md shadow-sm overflow-hidden">
               <div className="h-[3px]" style={{ background: color }} />
               <div className="p-4 space-y-3">
-                <p className="font-condensed text-[10px] font-bold tracking-[0.2em] uppercase text-slate-400">
+                <p className="font-condensed text-[10px] font-bold tracking-[0.2em] uppercase text-slate-500">
                   {t(r.settlement_type)}
                 </p>
                 <div className="space-y-1">
@@ -89,7 +89,7 @@ export function SettlementPanel() {
               <div key={r.settlement_type} className="flex items-center gap-1.5">
                 <div className="w-2.5 h-2.5 rounded-sm" style={{ background: color }} />
                 <span className="font-condensed text-[10px] text-slate-500">{t(r.settlement_type)}</span>
-                <span className="font-data text-[10px] text-slate-400">{pct.toFixed(0)}%</span>
+                <span className="font-data text-[10px] text-slate-500">{pct.toFixed(0)}%</span>
               </div>
             )
           })}

@@ -110,7 +110,7 @@ export function MicroplanTable() {
               <tr key={r.facility_name} className={`border-b border-slate-100 hover:bg-[#f0f7fd] transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}`}>
                 <td className="px-4 py-3">
                   <div className="font-medium text-[13px] text-slate-800">{r.facility_name}</div>
-                  <div className="font-data text-[10px] text-slate-400 mt-0.5">{r.facility_id}</div>
+                  <div className="font-data text-[10px] text-slate-500 mt-0.5">{r.facility_id}</div>
                 </td>
                 <td className="px-4 py-3 font-data text-[13px] text-slate-600">{r.microplan_target.toLocaleString()}</td>
                 <td className="px-4 py-3 font-data text-[13px] font-semibold text-slate-800">{r.achieved.toLocaleString()}</td>

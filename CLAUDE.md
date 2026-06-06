@@ -83,6 +83,14 @@ The dashboard has two orthogonal toggles, both persisted in URL params:
 
 ---
 
+## Map bubble sizing
+
+- **Source field**: `microplan_target` from `data.microplan`, joined by `facility_name` into the `facilities` useMemo. Falls back to `households_registered` if a facility has no microplan entry.
+- **Radius formula**: `Math.max(24, Math.min(56, Math.sqrt(target / 10) * 3.2))` — clamped 24–56px
+- **Coverage colour tiers** (full mode only): `≥ 70%` → `#2E7D32`, `≥ 40%` → `#F9A825`, `< 40%` → `#C62828`. Public mode: always `#009FDB`.
+
+---
+
 ## Performance patterns
 
 - **`useMemo`** all heavy data aggregations — see `KPICards.tsx` and `HFTable.tsx` for reference

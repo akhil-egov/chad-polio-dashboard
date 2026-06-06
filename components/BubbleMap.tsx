@@ -16,18 +16,20 @@ const ZOOM_THRESHOLD = 14
 
 // ── Coverage thresholds ──────────────────────────────────────────────────────
 function coverageInfo(pct: number) {
-  if (pct >= 60) return { color: '#2E7D32', label: '≥ 60% — On track' }
+  if (pct >= 70) return { color: '#2E7D32', label: '≥ 70% — On track' }
   if (pct >= 40) return { color: '#F9A825', label: '≥ 40% — Active' }
-  if (pct >= 20) return { color: '#E65100', label: '≥ 20% — Low' }
-  return { color: '#C62828', label: '< 20% — Critical' }
+  return { color: '#C62828', label: '< 40% — Critical' }
 }
 
 // ── Bubble icon factory (cached) ─────────────────────────────────────────────
+const DEFAULT_CENTER: [number, number] = [12.105, 15.07]
+const DEFAULT_ZOOM = 12
+
 const _iconCache = new Map<string, L.DivIcon>()
 function makeBubbleIcon(abbrev: string, covPct: number, records: number, color: string) {
   const key = `${abbrev}|${covPct.toFixed(1)}|${records}|${color}`
   if (_iconCache.has(key)) return _iconCache.get(key)!
-  const r = Math.max(26, Math.min(62, Math.sqrt(records) * 3.4))
+  const r = Math.max(24, Math.min(56, Math.sqrt(records / 10) * 3.2))
   const sz = Math.round(r * 2)
   const fs1 = sz > 56 ? 10 : 9
   const fs2 = sz > 56 ? 13 : 11
@@ -71,11 +73,12 @@ function ZoomWatcher({ onZoom }: { onZoom: (z: number) => void }) {
   return null
 }
 
-function FlyTo({ target }: { target: { pos: [number, number]; id: number } | null }) {
+function FlyTo({ target }: { target: { pos: [number, number]; id: number; zoom?: number } | null }) {
   const map = useMap()
   useEffect(() => {
     if (!target) return
-    map.flyTo(target.pos, Math.max(map.getZoom(), ZOOM_THRESHOLD), { duration: 0.8 })
+    const z = target.zoom ?? Math.max(map.getZoom(), ZOOM_THRESHOLD)
+    map.flyTo(target.pos, z, { duration: 0.8 })
   }, [target, map])
   return null
 }
@@ -121,7 +124,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
 
   const [zoom, setZoom] = useState(12)
   const [selectedFac, setSelectedFac] = useState<string | null>(null)
-  const [flyTarget, setFlyTarget] = useState<{ pos: [number, number]; id: number } | null>(null)
+  const [flyTarget, setFlyTarget] = useState<{ pos: [number, number]; id: number; zoom?: number } | null>(null)
   const [adm1, setAdm1] = useState<GeoJsonObject | null>(null)
   const [adm2, setAdm2] = useState<GeoJsonObject | null>(null)
   const [satOn, setSatOn] = useState(false)
@@ -212,12 +215,14 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
 
   const facilities = useMemo(() => {
     if (!data) return []
+    const microplanByFac = new Map(data.microplan.map(r => [r.facility_name, r.microplan_target]))
     return data.enumeration.map(r => {
       const covPct = r.pct_complete
       const { color } = coverageInfo(covPct)
+      const target = microplanByFac.get(r.facility_name) ?? r.households_registered
       return {
         name: r.facility_name,
-        records: r.households_registered,
+        records: target,
         covPct,
         color: isPublic ? '#009FDB' : color,
         abbrev: r.facility_name.replace(/^CS\s+/i, ''),
@@ -265,6 +270,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
   const totalVisible = visibleHouseholds.length + visibleRefusals.length + visibleZerodose.length
 
   function handleSelect(name: string) {
+    if (name === selectedFac) { handleClear(); return }
     setSelectedFac(name)
     const pos = centroids.get(name)
     if (pos) setFlyTarget(prev => ({ pos, id: (prev?.id ?? 0) + 1 }))
@@ -272,21 +278,24 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
 
   function handleClear() {
     setSelectedFac(null)
-    setFlyTarget(null)
+    setFlyTarget({ pos: DEFAULT_CENTER, id: Date.now(), zoom: DEFAULT_ZOOM })
   }
 
   const LEGEND_TIERS = isPublic
     ? [{ color: '#009FDB', label: 'Health facility' }]
     : [
-        { color: '#2E7D32', label: '≥ 60% — On track' },
+        { color: '#2E7D32', label: '≥ 70% — On track' },
         { color: '#F9A825', label: '≥ 40% — Active' },
-        { color: '#E65100', label: '≥ 20% — Low' },
-        { color: '#C62828', label: '< 20% — Critical' },
+        { color: '#C62828', label: '< 40% — Critical' },
       ]
 
   const activeDotLegend = useMemo(() => {
     const items: { color: string; label: string }[] = []
-    if (showHouseholds) items.push({ color: isPublic ? '#009FDB' : '#ef4444', label: 'Household' })
+    if (showHouseholds && isPublic) items.push({ color: '#009FDB', label: 'Household' })
+    if (showHouseholds && !isPublic) {
+      items.push({ color: '#22c55e', label: 'Household — vaccinated' })
+      items.push({ color: '#64748b', label: 'Household — not yet' })
+    }
     if (showRefusals) items.push({ color: '#C62828', label: `Refusal (${visibleRefusals.length})` })
     if (showZerodose) items.push({ color: '#F9A825', label: `Zero Dose (${visibleZerodose.length})` })
     return items
@@ -345,7 +354,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
                   </div>
                   <div className="px-3 py-2 text-right flex flex-col justify-center flex-shrink-0">
                     <div className="text-[13px] font-semibold text-gray-800">{fac.records.toLocaleString()}</div>
-                    <div className="text-[10px] text-gray-400 mt-0.5">records</div>
+                    <div className="text-[10px] text-gray-500 mt-0.5">target pop.</div>
                   </div>
                 </div>
               )
@@ -363,7 +372,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
 
         {/* ── Map ── */}
         <div className="flex-1 relative min-w-0">
-          <MapContainer center={[12.105, 15.07]} zoom={12} className="absolute inset-0" style={{ zIndex: 0 }}>
+          <MapContainer center={DEFAULT_CENTER} zoom={DEFAULT_ZOOM} className="absolute inset-0" style={{ zIndex: 0 }}>
             <TileLayer
               key={satOn ? 'sat' : 'osm'}
               url={satOn
@@ -396,8 +405,9 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
 
             {/* Household dots — neutralised in public mode */}
             {zoom >= ZOOM_THRESHOLD && visibleHouseholds.map((loc, i) => {
-              const fill = isPublic ? '#009FDB' : (loc.vaccinated ? '#22c55e' : '#ef4444')
-              const stroke = isPublic ? '#0077a8' : (loc.vaccinated ? '#16a34a' : '#dc2626')
+              const vaccinated = (loc.vaccinated_count ?? 0) > 0
+              const fill = isPublic ? '#009FDB' : (vaccinated ? '#22c55e' : '#64748b')
+              const stroke = isPublic ? '#0077a8' : (vaccinated ? '#16a34a' : '#475569')
               return (
                 <CircleMarker key={`h-${i}`} center={[loc.lat, loc.lng]} radius={6}
                   renderer={canvasRenderer}
@@ -470,6 +480,8 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
             onToggleZdStatus={toggleZdStatus}
             isReasonChecked={isReasonChecked}
             isZdStatusChecked={isZdStatusChecked}
+            onSelectAllReasons={() => setSelectedReasons(null)}
+            onSelectAllZdStatuses={() => setSelectedZdStatuses(null)}
           />
 
           {/* Stats bar */}
