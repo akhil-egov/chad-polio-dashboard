@@ -2,24 +2,10 @@
 import { useState } from 'react'
 import { IconChevronUp, IconChevronDown } from '@tabler/icons-react'
 import { useDashboard } from '@/lib/dashboard-context'
-import { getVisibility, type Visibility } from '@/lib/visibility'
+import { getVisibility } from '@/lib/visibility'
+import { CoverageBar } from '@/components/ui/CoverageBar'
 
 type SortKey = 'pct_complete' | 'gap' | 'achieved' | 'microplan_target'
-
-function ProgressBar({ pct, vis }: { pct: number; vis: Visibility }) {
-  const color = vis.progressBarColor(pct)
-  const textColor = vis.showStatusBadges
-    ? (pct >= 80 ? 'text-green-700' : pct >= 50 ? 'text-amber-600' : 'text-red-600')
-    : 'text-slate-700'
-  return (
-    <div className="flex items-center gap-2.5">
-      <div className="w-24 bg-slate-200 rounded-full h-[4px]">
-        <div className="h-[4px] rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%`, background: color }} />
-      </div>
-      <span className={`font-data text-[12px] font-semibold ${textColor}`}>{pct.toFixed(1)}%</span>
-    </div>
-  )
-}
 
 function StatusBadge({ pct, t }: { pct: number; t: (k: string) => string }) {
   if (pct >= 80) return (
@@ -117,7 +103,16 @@ export function MicroplanTable() {
                 </td>
                 <td className="px-4 py-3 font-data text-[13px] text-slate-600">{r.microplan_target.toLocaleString()}</td>
                 <td className="px-4 py-3 font-data text-[13px] font-semibold text-slate-800">{r.achieved.toLocaleString()}</td>
-                <td className="px-4 py-3"><ProgressBar pct={r.pct_complete} vis={vis} /></td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-24">
+                      <CoverageBar pct={r.pct_complete} mode={mode} height="h-[4px]" />
+                    </div>
+                    <span className={`font-data text-[12px] font-semibold ${vis.showStatusBadges ? (r.pct_complete >= 80 ? 'text-green-700' : r.pct_complete >= 50 ? 'text-amber-600' : 'text-red-600') : 'text-slate-700'}`}>
+                      {r.pct_complete.toFixed(1)}%
+                    </span>
+                  </div>
+                </td>
                 <td className="px-4 py-3">
                   <span className={`font-data text-[13px] font-semibold ${vis.showGapNumbers ? (r.gap > 0 ? 'text-red-600' : 'text-green-600') : 'text-slate-700'}`}>
                     {r.gap.toLocaleString()}

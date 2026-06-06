@@ -3,24 +3,10 @@ import { useState, useMemo } from 'react'
 import { IconAlertCircle, IconChevronUp, IconChevronDown } from '@tabler/icons-react'
 import { useDashboard } from '@/lib/dashboard-context'
 import { coverageByFacility, teamActivityByFacility } from '@/lib/campaign-queries'
-import { getVisibility, type Visibility } from '@/lib/visibility'
+import { getVisibility } from '@/lib/visibility'
+import { CoverageBar } from '@/components/ui/CoverageBar'
 
 type SortKey = 'pct_complete' | 'missed' | 'eligible' | 'reporting_pct'
-
-function CoverageBar({ pct, vis }: { pct: number; vis: Visibility }) {
-  const barColor = vis.barColor(pct)
-  const textColor = vis.showStatusBadges
-    ? (pct >= 80 ? 'text-green-700' : pct >= 50 ? 'text-amber-600' : 'text-red-600')
-    : 'text-slate-700'
-  return (
-    <div className="flex items-center gap-2.5">
-      <div className="w-20 bg-slate-200 rounded-full h-[4px]">
-        <div className="h-[4px] rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%`, background: barColor }} />
-      </div>
-      <span className={`font-data text-[12px] font-semibold ${textColor}`}>{pct.toFixed(1)}%</span>
-    </div>
-  )
-}
 
 function StatusBadge({ pct, t }: { pct: number; t: (k: string) => string }) {
   if (pct >= 80) return (
@@ -135,7 +121,16 @@ export function HFTable() {
                   <div className="font-medium text-[13px] text-slate-800">{r.facility_name}</div>
                   <div className="font-data text-[10px] text-slate-500 mt-0.5">{r.totalTeams} {t('teams')} · {r.eligible.toLocaleString()} {t('eligible')}</div>
                 </td>
-                <td className="px-4 py-3"><CoverageBar pct={r.pct_complete} vis={vis} /></td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-20">
+                      <CoverageBar pct={r.pct_complete} mode={mode} height="h-[4px]" />
+                    </div>
+                    <span className={`font-data text-[12px] font-semibold ${vis.showStatusBadges ? (r.pct_complete >= 80 ? 'text-green-700' : r.pct_complete >= 50 ? 'text-amber-600' : 'text-red-600') : 'text-slate-700'}`}>
+                      {r.pct_complete.toFixed(1)}%
+                    </span>
+                  </div>
+                </td>
                 <td className="px-4 py-3">
                   <span className={`font-data text-[13px] font-semibold ${r.missed > 0 ? 'text-slate-700' : 'text-slate-500'}`}>{r.missed.toLocaleString()}</span>
                 </td>

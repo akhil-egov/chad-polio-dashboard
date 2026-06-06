@@ -2,6 +2,8 @@
 import { useState } from 'react'
 import { IconChevronUp, IconChevronDown } from '@tabler/icons-react'
 import { useDashboard } from '@/lib/dashboard-context'
+import { getVisibility } from '@/lib/visibility'
+import { CoverageBar } from '@/components/ui/CoverageBar'
 
 type SortKey = 'vials_issued' | 'vials_returned' | 'vials_used' | 'utilization'
 
@@ -11,7 +13,7 @@ export function StockTable() {
   const [asc, setAsc] = useState(false)
   if (!data) return null
 
-  const isPublic = mode === 'public'
+  const vis = getVisibility(mode)
 
   const rows = data.stock.map(r => ({
     ...r,
@@ -71,8 +73,6 @@ export function StockTable() {
           </thead>
           <tbody>
             {rows.map((r, i) => {
-              const utilColor = isPublic ? 'text-slate-700' : (r.utilization >= 80 ? 'text-green-700' : r.utilization >= 50 ? 'text-amber-600' : 'text-red-600')
-              const barColor = isPublic ? '#009FDB' : (r.utilization >= 80 ? '#16a34a' : r.utilization >= 50 ? '#ca8a04' : '#dc2626')
               return (
                 <tr key={r.facility_name} className={`border-b border-slate-100 hover:bg-[#f0f7fd] transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}`}>
                   <td className="px-4 py-3">
@@ -84,10 +84,10 @@ export function StockTable() {
                   <td className="px-4 py-3 font-data text-[13px] font-semibold text-slate-800">{r.vials_used.toLocaleString()}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <div className="w-16 bg-slate-200 rounded-full h-[4px]">
-                        <div className="h-[4px] rounded-full" style={{ width: `${Math.min(r.utilization, 100)}%`, background: barColor }} />
+                      <div className="w-16">
+                        <CoverageBar pct={r.utilization} mode={mode} height="h-[4px]" />
                       </div>
-                      <span className={`font-data text-[12px] font-semibold ${utilColor}`}>{r.utilization.toFixed(0)}%</span>
+                      <span className={`font-data text-[12px] font-semibold ${vis.showStatusBadges ? (r.utilization >= 80 ? 'text-green-700' : r.utilization >= 50 ? 'text-amber-600' : 'text-red-600') : 'text-slate-700'}`}>{r.utilization.toFixed(0)}%</span>
                     </div>
                   </td>
                 </tr>
