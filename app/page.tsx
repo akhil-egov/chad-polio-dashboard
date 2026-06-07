@@ -1,4 +1,5 @@
 'use client'
+import { Suspense } from 'react'
 import dynamic from 'next/dynamic'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { KPICards } from '@/components/KPICards'
@@ -47,7 +48,7 @@ function PillToggle<T extends string>({
   )
 }
 
-export default function Home() {
+function HomeContent() {
   const { isLoading, error, data, lang, setLang, mode, setMode, t } = useDashboard()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -248,5 +249,13 @@ export default function Home() {
         </Tabs>
       </main>
     </div>
+  )
+}
+
+export default function Home() {
+  return (
+    <Suspense>
+      <HomeContent />
+    </Suspense>
   )
 }
