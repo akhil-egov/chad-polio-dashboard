@@ -102,7 +102,7 @@ function HomeContent() {
           {/* Title + metadata */}
           <div className="flex-1 min-w-0">
             <h1 className="font-condensed text-[1.05rem] sm:text-[1.35rem] md:text-[1.75rem] font-bold tracking-[0.04em] text-[#1A1F2E] uppercase leading-tight">
-              {t('Chad Polio Campaign — War Room')}
+              {t('Chad Polio Campaign')}
             </h1>
             <div className="hidden md:flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
               {["N'Djamena", "Enum Jun 3–7", "Vacc Jun 5–7"].map((item, i, arr) => (

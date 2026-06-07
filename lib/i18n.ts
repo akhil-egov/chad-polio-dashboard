@@ -1,5 +1,5 @@
 const dict: Record<string, { en: string; fr: string }> = {
-  'Chad Polio Campaign — War Room': { en: 'Chad Polio Campaign — War Room', fr: 'Campagne Polio Tchad — Salle des Opérations' },
+  'Chad Polio Campaign': { en: 'Chad Polio Campaign', fr: 'Campagne Polio Tchad' },
   'Live': { en: 'Live', fr: 'En direct' },
   'Loading data…': { en: 'Loading data…', fr: 'Chargement des données…' },
   'Day:': { en: 'Day:', fr: 'Jour :' },
