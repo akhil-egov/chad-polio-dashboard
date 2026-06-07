@@ -82,7 +82,7 @@ const dict: Record<string, { en: string; fr: string }> = {
   'missed children':           { en: 'missed children',           fr: 'enfants manqués' },
   'total refusals recorded':   { en: 'total refusals recorded',   fr: 'refus enregistrés au total' },
   'still unvaccinated':        { en: 'still unvaccinated',        fr: 'toujours non vaccinés' },
-  'Missed by Settlement Type': { en: 'Missed by Settlement Type', fr: 'Manqués par type de localité' },
+  'Missed by Settlement Type':  { en: 'Missed by Settlement Type', fr: 'Manqués par type de localité' },
   'missed':                    { en: 'missed',                    fr: 'manqués' },
   'Zero-Dose Children':        { en: 'Zero-Dose Children',        fr: 'Enfants zéro-dose' },
   'All Facilities':            { en: 'All Facilities',            fr: 'Tous les centres' },
