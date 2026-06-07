@@ -223,20 +223,17 @@ with open("extractors/gps.py", "w") as f:
 
 **To run the extractor from Jupyter:**
 ```python
-import os
-os.environ["ES_URL"] = "https://elasticsearch-data.es-cluster:9200"
-os.environ["ES_AUTH_HEADER"] = "Basic ZWxhc3RpYzo2OGF0dU5FTXoycXpPUUVNS25RRUR6elk="
-
+# Credentials are pre-loaded in the kernel environment — just run:
 from main import run
 run()
 ```
 Always **Kernel → Restart** before running to clear cached imports.
 
-**Full data update workflow:**
-1. Edit extractor on remote Jupyter (e.g. `extractors/gps.py`)
-2. Restart kernel, run the cell above
-3. Download the new `output/chad_YYYYMMDD_HHMM.xlsx`
-4. On local: `python3 scripts/excel_to_json.py /path/to/chad_YYYYMMDD_HHMM.xlsx`
+**Full data update workflow (automated):**
+1. Edit extractor locally in `chad-polio-ingest/`
+2. `python3 deploy.py extractors/<file>.py` — uploads to Jupyter
+3. On Jupyter: Kernel → Restart → `run()`
+4. Locally: `python3 fetch_latest.py` — downloads, converts, commits, pushes
 5. `git add public/data.json && git commit -m "data: update to chad_YYYYMMDD_HHMM" && git push`
 
 ---
