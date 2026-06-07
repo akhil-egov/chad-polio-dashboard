@@ -243,7 +243,7 @@ export function FilterSidebar({
                 </div>
                 <div className="px-3 py-2 text-right flex flex-col justify-center flex-shrink-0">
                   <div className="text-[13px] font-semibold text-gray-800">{fac.records.toLocaleString()}</div>
-                  <div className="text-[12px] text-slate-500 mt-0.5">target pop.</div>
+                  <div className="text-[12px] text-slate-500 mt-0.5">eligible 0–59m</div>
                 </div>
               </div>
             )

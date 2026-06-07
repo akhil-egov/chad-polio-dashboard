@@ -4,12 +4,18 @@ import { REFUSAL_LABEL, COLORS } from '@/lib/constants'
 export function HouseholdCard({ loc, showTeam }: { loc: GpsRow; showTeam: boolean }) {
   const hasVaccData = loc.vaccinated_count != null
   const vaccinated = loc.vaccinated_count ?? 0
+  const header = loc.head_of_household || loc.facility_name
   return (
     <>
-      <div style={{ fontWeight: 700, fontSize: 14, color: COLORS.TEXT_PRIMARY, marginBottom: 4 }}>
-        {loc.facility_name}
+      <div style={{ fontWeight: 700, fontSize: 14, color: COLORS.TEXT_PRIMARY, marginBottom: 2 }}>
+        {header}
       </div>
-      {showTeam && loc.user_name && (
+      {loc.head_of_household && (
+        <div style={{ fontSize: 12, color: COLORS.TEXT_SECONDARY, marginBottom: 4 }}>
+          {loc.facility_name}
+        </div>
+      )}
+      {loc.user_name && (
         <div style={{ fontSize: 13, color: COLORS.WHO_BLUE, fontWeight: 600, marginBottom: 4 }}>
           {loc.user_name}
         </div>
@@ -19,13 +25,13 @@ export function HouseholdCard({ loc, showTeam }: { loc: GpsRow; showTeam: boolea
           {loc.member_count} {loc.member_count === 1 ? 'member' : 'members'}
         </div>
       )}
-      {hasVaccData && (
+      {hasVaccData && vaccinated > 0 && (
         <div style={{
           fontSize: 13, fontWeight: 700,
-          color: vaccinated > 0 ? COLORS.ON_TRACK : COLORS.CRITICAL,
+          color: COLORS.ON_TRACK,
           borderTop: '1px solid #f1f5f9', paddingTop: 5,
         }}>
-          {vaccinated > 0 ? `✓ ${vaccinated} children vaccinated` : '✗ None vaccinated'}
+          ✓ {vaccinated} children vaccinated
         </div>
       )}
     </>

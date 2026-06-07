@@ -173,13 +173,11 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
 
   const facilities = useMemo((): FacilityItem[] => {
     if (!data) return []
-    const microplanByFac = new Map(data.microplan.map(r => [r.facility_name, r.microplan_target]))
     return data.enumeration.map(r => {
       const covPct = r.pct_complete
-      const target = microplanByFac.get(r.facility_name) ?? r.households_registered
       return {
         name: r.facility_name,
-        records: target,
+        records: r.eligible_children,
         covPct,
         color: vis.bubbleColor(covPct),
         abbrev: r.facility_name.replace(/^CS\s+/i, ''),
@@ -333,7 +331,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
                       <div style={{ fontSize: 11, color: '#475569', marginBottom: 2 }}>
                         <b style={{ color: '#006EB6' }}>{fac.covPct.toFixed(1)}%</b> coverage
                       </div>
-                      <div style={{ fontSize: 11, color: '#64748b' }}>{fac.records.toLocaleString()} households</div>
+                      <div style={{ fontSize: 11, color: '#64748b' }}>{fac.records.toLocaleString()} eligible children</div>
                     </div>
                   </Popup>
                 </Marker>
@@ -466,7 +464,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
               </>
             )}
             <hr className="my-1.5 border-gray-100" />
-            <div className="text-[12px] text-gray-400">Bubble size = records collected</div>
+            <div className="text-[12px] text-gray-400">Bubble size = eligible children (0–59m)</div>
           </div>
         </div>
       </div>
