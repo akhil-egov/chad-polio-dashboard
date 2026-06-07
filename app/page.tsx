@@ -1,6 +1,6 @@
 'use client'
 import dynamic from 'next/dynamic'
-import { useState } from 'react'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { KPICards } from '@/components/KPICards'
 import { DateFilter } from '@/components/DateFilter'
 import { HFTable } from '@/components/HFTable'
@@ -49,8 +49,19 @@ function PillToggle<T extends string>({
 
 export default function Home() {
   const { isLoading, error, data, lang, setLang, mode, setMode, t } = useDashboard()
-  const [activeTab, setActiveTab] = useState('overview')
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+  const activeTab = searchParams.get('tab') ?? 'overview'
+
+  function handleTabChange(tab: string) {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('tab', tab)
+    router.replace(`${pathname}?${params.toString()}`)
+  }
+
   const vis = getVisibility(mode)
+  const isMap = activeTab === 'map'
 
   if (isLoading) {
     return (
@@ -73,12 +84,8 @@ export default function Home() {
     )
   }
 
-  if (activeTab === 'map') {
-    return <BubbleMap onBack={() => setActiveTab('overview')} />
-  }
-
   return (
-    <div className="min-h-screen wr-bg-grid flex flex-col" style={{ background: '#F5F0E8' }}>
+    <div className={`${isMap ? 'h-screen' : 'min-h-screen wr-bg-grid'} flex flex-col`} style={{ background: '#F5F0E8' }}>
       {/* ── Header ── */}
       <header className="flex-none bg-white border-b" style={{ borderColor: '#E5E0D8' }}>
         <div className="max-w-[1380px] mx-auto px-4 md:px-6 py-3 md:py-4 flex items-center gap-3 md:gap-5">
@@ -151,11 +158,21 @@ export default function Home() {
       </header>
 
       {/* ── Main content ── */}
-      <main className="flex-1 max-w-[1380px] mx-auto w-full px-4 md:px-6 py-4 md:py-5 space-y-4 md:space-y-5">
-        <AlertBar />
+      <main className={isMap
+        ? 'flex-1 min-h-0 flex flex-col overflow-hidden'
+        : 'flex-1 max-w-[1380px] mx-auto w-full px-4 md:px-6 py-4 md:py-5 space-y-4 md:space-y-5'
+      }>
+        {!isMap && <AlertBar />}
 
-        <Tabs value={activeTab} onValueChange={v => setActiveTab(v)}>
-          <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+        <Tabs
+          value={activeTab}
+          onValueChange={handleTabChange}
+          className={isMap ? 'flex-1 min-h-0 flex flex-col overflow-hidden' : undefined}
+        >
+          <div className={isMap
+            ? 'overflow-x-auto flex-none border-b'
+            : 'overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0'
+          }>
             <TabsList className="min-w-max">
               <TabsTrigger value="overview">{t('Overview')}</TabsTrigger>
               <TabsTrigger value="map">{t('Map')}</TabsTrigger>
@@ -167,6 +184,10 @@ export default function Home() {
               <TabsTrigger value="absent-missed">{t('Absent & Missed')}</TabsTrigger>
             </TabsList>
           </div>
+
+          <TabsContent value="map" className={isMap ? 'flex-1 min-h-0 mt-0 overflow-hidden' : ''}>
+            <BubbleMap />
+          </TabsContent>
 
           <TabsContent value="overview" className="space-y-5 md:space-y-6">
             <DateFilter />
