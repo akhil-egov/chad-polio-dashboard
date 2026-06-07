@@ -205,49 +205,68 @@ dots in a real browser — do not waste time trying to automate this.
 ## Ingest pipeline — remote Jupyter
 
 The ingest pipeline runs on a **remote Jupyter server** at `campaigns.afro.who.int/jupyter`.
-It is NOT local. Path: `/HCM_CUSTOM_REPORTS/CHAD_POLIO_PILOT/DST/`
+It is NOT local. User: `reportsadmin`. JupyterHub token stored in `.env.local`.
 
-Key files on remote:
+Key files on remote (at `~/HCM_CUSTOM_REPORTS/CHAD_POLIO_PILOT/DST/`):
 - `main.py` — orchestrates all extractors, writes timestamped Excel to `output/`
-- `extractors/gps.py` — GPS extraction + vaccination count join
-- `extractors/gps_refusals.py` — refusal household dots
-- `extractors/gps_zerodose.py` — zero-dose child dots
+- `scheduler.py` — hourly background runner (started via `setup_cron.py`)
+- `run_hourly.py` — thin wrapper invoked by scheduler
+- `extractors/gps.py` — GPS extraction + vaccination count join + head-of-household
 - `extractors/base.py` — ESClient (`es.query()` and `es.scroll()` — NOT `es.search()`)
 
-**When editing extractors on Jupyter, always write the file via a cell — never paste raw Python:**
-```python
-content = '''...file contents...'''
-with open("extractors/gps.py", "w") as f:
-    f.write(content)
-```
+**Do NOT edit extractors directly on Jupyter.** Edit locally in `chad-polio-ingest/`, then deploy.
 
-**To run the extractor from Jupyter:**
-```python
-# Credentials are pre-loaded in the kernel environment — just run:
-from main import run
-run()
-```
-Always **Kernel → Restart** before running to clear cached imports.
+### Automation scripts (all in this repo root)
 
-**Full data update workflow (automated):**
-1. Edit extractor locally in `chad-polio-ingest/`
-2. `python3 deploy.py extractors/<file>.py` — uploads to Jupyter
-3. On Jupyter: Kernel → Restart → `run()`
-4. Locally: `python3 fetch_latest.py` — downloads, converts, commits, pushes
-5. `git add public/data.json && git commit -m "data: update to chad_YYYYMMDD_HHMM" && git push`
+| Script | Purpose | Command |
+|--------|---------|---------|
+| `fetch_latest.py` | Download latest Excel → data.json → git push | `python3 fetch_latest.py` |
+| `run_pipeline.py` | Trigger extraction on Jupyter + fetch_latest | `python3 run_pipeline.py` |
+| `setup_cron.py` | Start hourly scheduler on Jupyter server | `python3 setup_cron.py` |
+
+Credentials in `.env.local` (gitignored): `JUPYTER_BASE`, `JUPYTER_TOKEN`, `JUPYTER_REMOTE_ROOT`, `ES_URL`, `ES_AUTH_HEADER`.
+
+### Scheduler (running on Jupyter server)
+- `scheduler.py` runs `main.run()` every hour at :00, logs to `~/pipeline.log`
+- Started once via `python3 setup_cron.py`
+- After a server reboot: re-run `python3 setup_cron.py` to restart it
+- PID saved at `~/scheduler.pid` on the server
+
+### Normal data update workflow
+1. The scheduler runs automatically — just run `python3 fetch_latest.py` to pull and deploy
+2. For an immediate forced run: `python3 run_pipeline.py`
+
+### Updating an extractor
+1. Edit `extractors/<file>.py` in `chad-polio-ingest/` locally
+2. `cd chad-polio-ingest && python3 deploy.py extractors/<file>.py`
+3. `python3 run_pipeline.py` to trigger a fresh extraction
+
+### Critical ES gotcha — campaign filter
+`ESClient(campaign_number=...)` in `main.py` injects `Data.campaignNumber.keyword` into **every** query.
+`chad-household-member-index-v1` and `chad-individual-index-v1` have **no** `Data.campaignNumber` field
+— queries against them via the campaign-scoped client return 0 hits silently.
+Always use `ESClient()` (no args) for lookups against these two indices.
 
 ---
 
 ## Elasticsearch indices
 
-| Index | Used for |
-|-------|----------|
-| `chad-household-index-v1` | GPS, enumeration (household count), settlement, refusals |
-| `chad-project-beneficiary-index-v1` | Eligible children, demographics |
-| `chad-project-task-index-v1` | Vaccinated children, activity, stock |
-| `chad-user-action-location-capture-index-v1` | (not yet used) |
+| Index | Used for | Campaign-scoped? |
+|-------|----------|-----------------|
+| `chad-household-index-v1` | GPS, enumeration, settlement, refusals | Yes |
+| `chad-project-beneficiary-index-v1` | Eligible children, demographics | Yes |
+| `chad-project-task-index-v1` | Vaccinated children, activity, stock | Yes |
+| `chad-household-member-index-v1` | Head-of-household join (hop 1) | **No** — use `ESClient()` |
+| `chad-individual-index-v1` | Head-of-household join (hop 2) | **No** — use `ESClient()` |
+| `chad-user-action-location-capture-index-v1` | (not yet used) | Yes |
 
 Campaign ID: `CMP-2026-05-29-000091`
+
+### Individual index structure
+`chad-individual-index-v1` is **flat** — fields are at the root, not nested under `Data.Individual`:
+- `clientReferenceId` (not `Data.Individual.clientReferenceId`)
+- `name.givenName`, `name.familyName` (not `Data.Individual.name.*`)
+- Query with `clientReferenceId.keyword`
 
 ---
 
