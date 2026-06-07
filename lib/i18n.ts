@@ -93,6 +93,8 @@ const dict: Record<string, { en: string; fr: string }> = {
   'Settlement Type':           { en: 'Settlement Type',           fr: 'Type de localité' },
   'MALE':                      { en: 'Male',                      fr: 'Masculin' },
   'FEMALE':                    { en: 'Female',                    fr: 'Féminin' },
+  'rows':                      { en: 'rows',                      fr: 'lignes' },
+  'No records for this facility.': { en: 'No records for this facility.', fr: 'Aucun enregistrement pour ce centre.' },
 }
 
 export type Lang = 'en' | 'fr'

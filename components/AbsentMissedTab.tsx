@@ -1,9 +1,10 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useDashboard } from '@/lib/dashboard-context'
 import { getVisibility } from '@/lib/visibility'
 import { COLORS, KPI_ACCENT } from '@/lib/constants'
 import { RefusalsTable } from '@/components/RefusalsTable'
+import { settlementBreakdown } from '@/lib/campaign-queries'
 
 function SimpleCard({ title, value, sub, accentColor }: {
   title: string; value: string; sub: string; accentColor: string
@@ -45,13 +46,14 @@ export function AbsentMissedTab() {
   )
 
   const settlementMissed = useMemo(() => {
-    return [...(data?.settlement ?? [])]
+    if (!data) return []
+    return settlementBreakdown(data)
       .map(r => ({
         type: r.settlement_type,
-        missed: r.eligible_children - r.vaccinated,
+        missed: r.eligible_children - r.vaccinated_children,
       }))
       .sort((a, b) => b.missed - a.missed)
-  }, [data?.settlement])
+  }, [data])
 
   const maxMissed = useMemo(
     () => Math.max(...settlementMissed.map(r => r.missed), 1),
@@ -76,9 +78,7 @@ export function AbsentMissedTab() {
     })
   }, [data?.gps_zerodose, facilityFilter])
 
-  if (!data) return null
-
-  function handleExportCSV() {
+  const handleExportCSV = useCallback(() => {
     const headers = [
       'record_id', 'facility_name', 'settlement_type',
       'age_months', 'gender', 'administration_status',
@@ -103,7 +103,9 @@ export function AbsentMissedTab() {
     a.download = `zero-dose-${new Date().toISOString().slice(0, 10)}.csv`
     a.click()
     URL.revokeObjectURL(url)
-  }
+  }, [zeroDoseRows, vis.showTeamActivity])
+
+  if (!data) return null
 
   const sectionHeading = 'text-[15px] font-bold tracking-wide uppercase mb-3 md:mb-4'
 
@@ -147,19 +149,19 @@ export function AbsentMissedTab() {
           <select
             value={facilityFilter}
             onChange={e => setFacilityFilter(e.target.value)}
-            className="h-8 rounded-md border border-slate-200 bg-white px-2 py-1 text-[13px] text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#006EB6]"
+            className="h-8 rounded-md border border-slate-200 bg-white px-2 py-1 text-[13px] text-slate-700 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006EB6]"
           >
             <option value="">{t('All Facilities')}</option>
             {zeroDoseFacilities.map(f => <option key={f} value={f}>{f}</option>)}
           </select>
           <button
             onClick={handleExportCSV}
-            className="h-8 px-3 rounded-md border border-slate-200 bg-white text-[13px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#006EB6] transition-colors"
+            className="h-8 px-3 rounded-md border border-slate-200 bg-white text-[13px] font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006EB6] transition-colors"
           >
             {t('Export CSV')}
           </button>
           <span className="text-[13px] text-slate-400" style={{ fontVariantNumeric: 'tabular-nums' }}>
-            {zeroDoseRows.length.toLocaleString()} rows
+            {zeroDoseRows.length.toLocaleString()} {t('rows')}
           </span>
         </div>
         <div className="overflow-x-auto rounded-lg border bg-white shadow-sm" style={{ borderColor: COLORS.BORDER }}>
@@ -200,7 +202,7 @@ export function AbsentMissedTab() {
                 {zeroDoseRows.length === 0 && (
                   <tr>
                     <td colSpan={vis.showTeamActivity ? 6 : 5} className="px-4 py-8 text-center text-[13px] text-slate-400">
-                      No records for this facility.
+                      {t('No records for this facility.')}
                     </td>
                   </tr>
                 )}
