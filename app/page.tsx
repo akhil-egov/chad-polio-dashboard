@@ -12,6 +12,7 @@ import { StockTable } from '@/components/StockTable'
 import { RefusalsTable } from '@/components/RefusalsTable'
 import { SettlementPanel } from '@/components/SettlementPanel'
 import { DemographicsPanel } from '@/components/DemographicsPanel'
+import { AbsentMissedTab } from '@/components/AbsentMissedTab'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useDashboard } from '@/lib/dashboard-context'
 import { getVisibility } from '@/lib/visibility'
@@ -163,6 +164,7 @@ export default function Home() {
               )}
               <TabsTrigger value="microplan">{t('Microplan')}</TabsTrigger>
               <TabsTrigger value="analytics">{t('Analytics')}</TabsTrigger>
+              <TabsTrigger value="absent-missed">{t('Absent & Missed')}</TabsTrigger>
             </TabsList>
           </div>
 
@@ -217,6 +219,10 @@ export default function Home() {
               </h2>
               <RefusalsTable />
             </div>
+          </TabsContent>
+
+          <TabsContent value="absent-missed" className="space-y-5 md:space-y-6">
+            <AbsentMissedTab />
           </TabsContent>
         </Tabs>
       </main>
