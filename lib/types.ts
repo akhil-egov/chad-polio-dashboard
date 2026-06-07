@@ -21,7 +21,11 @@ export interface ActivityRow {
   user_name: string
   facility_name: string
   facility_id: string
+  region: string | null
+  district: string | null
+  team_name: string | null
   date: string
+  day_number: number | null
   task_count: number
   last_sync: string
   is_inactive: boolean
@@ -42,6 +46,17 @@ export interface StockRow {
   vials_issued: number
   vials_returned: number
   vials_used: number
+}
+
+export interface StockDailyRow {
+  user_name: string | null
+  name_of_user: string | null
+  facility_name: string | null
+  facility_id: string | null
+  district: string | null
+  region: string | null
+  date: string | null
+  vials_received: number
 }
 
 export interface GpsRow {
@@ -133,6 +148,7 @@ export interface DashboardData {
   activity: ActivityRow[]
   enumeration: EnumerationRow[]
   stock: StockRow[]
+  stock_daily: StockDailyRow[]
   gps: GpsRow[]
   gps_refusals: GpsRefusalRow[]
   gps_zerodose: GpsZeroDoseRow[]

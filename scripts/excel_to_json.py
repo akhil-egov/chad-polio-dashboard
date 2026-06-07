@@ -55,6 +55,17 @@ def convert(xlsx_path: str, out_path: str):
     # stock
     data['stock'] = rows(xl.parse('stock'))
 
+    # stock_daily
+    if 'stock_daily' in xl.sheet_names:
+        sd = xl.parse('stock_daily')
+        if 'date' in sd.columns:
+            sd['date'] = sd['date'].apply(
+                lambda v: None if pd.isna(v) else str(v)[:10]
+            )
+        data['stock_daily'] = rows(sd)
+    else:
+        data['stock_daily'] = []
+
     # gps — vaccinated must be bool
     gps = xl.parse('gps')
     gps['vaccinated'] = gps['vaccinated'].astype(bool)

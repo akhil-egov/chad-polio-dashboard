@@ -5,23 +5,24 @@ import { useDashboard } from '@/lib/dashboard-context'
 import { coverageByFacility, teamActivityByFacility } from '@/lib/campaign-queries'
 import { getVisibility } from '@/lib/visibility'
 import { CoverageBar } from '@/components/ui/CoverageBar'
+import { COLORS } from '@/lib/constants'
 
 type SortKey = 'pct_complete' | 'missed' | 'eligible' | 'reporting_pct'
 
 function StatusBadge({ pct, t }: { pct: number; t: (k: string) => string }) {
   if (pct >= 80) return (
-    <span className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-[0.12em] uppercase px-2 py-1 rounded-sm bg-green-50 text-green-700 border border-green-200">
-      <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> {t('On Track')}
+    <span className="inline-flex items-center gap-1.5 text-[12px] font-bold tracking-wide uppercase px-2.5 py-1 rounded-sm bg-green-50 border border-green-200" style={{ color: COLORS.ON_TRACK }}>
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: COLORS.ON_TRACK }} /> {t('On Track')}
     </span>
   )
   if (pct >= 50) return (
-    <span className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-[0.12em] uppercase px-2 py-1 rounded-sm bg-amber-50 text-amber-700 border border-amber-200">
-      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> {t('At Risk')}
+    <span className="inline-flex items-center gap-1.5 text-[12px] font-bold tracking-wide uppercase px-2.5 py-1 rounded-sm bg-amber-50 border border-amber-200" style={{ color: COLORS.ACTIVE }}>
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: COLORS.ACTIVE }} /> {t('At Risk')}
     </span>
   )
   return (
-    <span className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-[0.12em] uppercase px-2 py-1 rounded-sm bg-red-50 text-red-700 border border-red-200">
-      <span className="w-1.5 h-1.5 rounded-full bg-red-500" /> {t('Behind')}
+    <span className="inline-flex items-center gap-1.5 text-[12px] font-bold tracking-wide uppercase px-2.5 py-1 rounded-sm bg-red-50 border border-red-200" style={{ color: COLORS.CRITICAL }}>
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: COLORS.CRITICAL }} /> {t('Behind')}
     </span>
   )
 }
@@ -89,7 +90,7 @@ export function HFTable() {
 
   const SortIcon = ({ k }: { k: SortKey }) => {
     if (sortKey !== k) return null
-    return asc ? <IconChevronUp size={12} className="inline ml-0.5 opacity-50" /> : <IconChevronDown size={12} className="inline ml-0.5 opacity-50" />
+    return asc ? <IconChevronUp size={13} className="inline ml-0.5 opacity-60" /> : <IconChevronDown size={13} className="inline ml-0.5 opacity-60" />
   }
 
   const handleSort = (k: SortKey) => {
@@ -97,50 +98,55 @@ export function HFTable() {
     else { setSortKey(k); setAsc(true) }
   }
 
-  const thBase = 'px-4 py-3 text-left font-condensed text-[10px] font-bold tracking-[0.18em] uppercase text-slate-500 cursor-pointer select-none hover:text-[#009FDB] transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#009FDB]'
-  const thStatic = 'px-4 py-3 text-left font-condensed text-[10px] font-bold tracking-[0.18em] uppercase text-slate-500'
+  const thBase = 'px-4 py-3 text-left text-[13px] font-bold tracking-wide uppercase cursor-pointer select-none hover:text-[#006EB6] transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#006EB6]'
+  const thStatic = 'px-4 py-3 text-left text-[13px] font-bold tracking-wide uppercase whitespace-nowrap'
 
   return (
-    <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-sm">
-      <table className="w-full text-sm">
+    <div className="overflow-x-auto rounded-lg border bg-white shadow-sm" style={{ borderColor: '#E5E0D8' }}>
+      <table className="w-full">
         <thead>
-          <tr className="border-b border-slate-200 bg-slate-50">
-            <th className={thStatic}>{t('Facility')}</th>
-            <th className={thBase} onClick={() => handleSort('pct_complete')}>{t('Coverage %')} <SortIcon k="pct_complete" /></th>
-            <th className={thBase} onClick={() => handleSort('missed')}>{t('Missed · Revisit')} <SortIcon k="missed" /></th>
-            <th className={thBase} onClick={() => handleSort('reporting_pct')}>{t('Teams Reporting')} <SortIcon k="reporting_pct" /></th>
-            {vis.showStatusBadges && <th className={thStatic}>{t('Status')}</th>}
+          <tr className="border-b" style={{ borderColor: '#E5E0D8', background: '#FAF8F4' }}>
+            <th className={`${thStatic} text-slate-500`}>{t('Facility')}</th>
+            <th className={`${thBase} text-slate-500`} onClick={() => handleSort('pct_complete')} tabIndex={0} onKeyDown={e => e.key === 'Enter' && handleSort('pct_complete')}>{t('Coverage %')} <SortIcon k="pct_complete" /></th>
+            <th className={`${thBase} text-slate-500`} onClick={() => handleSort('missed')} tabIndex={0} onKeyDown={e => e.key === 'Enter' && handleSort('missed')}>{t('Missed · Revisit')} <SortIcon k="missed" /></th>
+            <th className={`${thBase} text-slate-500`} onClick={() => handleSort('reporting_pct')} tabIndex={0} onKeyDown={e => e.key === 'Enter' && handleSort('reporting_pct')}>{t('Teams Reporting')} <SortIcon k="reporting_pct" /></th>
+            {vis.showStatusBadges && <th className={`${thStatic} text-slate-500`}>{t('Status')}</th>}
           </tr>
         </thead>
         <tbody>
           {rows.map((r, i) => {
             const partial = r.reportingTeams < r.totalTeams
+            const covColor = vis.showStatusBadges
+              ? (r.pct_complete >= 80 ? COLORS.ON_TRACK : r.pct_complete >= 50 ? COLORS.ACTIVE : COLORS.CRITICAL)
+              : COLORS.WHO_BLUE
             return (
-              <tr key={r.facility_name} className={`border-b border-slate-100 hover:bg-[#f0f7fd] transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}`}>
-                <td className="px-4 py-3">
-                  <div className="font-medium text-[13px] text-slate-800">{r.facility_name}</div>
-                  <div className="font-data text-[10px] text-slate-500 mt-0.5">{r.totalTeams} {t('teams')} · {r.eligible.toLocaleString()} {t('eligible')}</div>
+              <tr key={r.facility_name} className={`border-b transition-colors hover:bg-blue-50/40 ${i % 2 === 0 ? 'bg-white' : ''}`} style={{ borderColor: '#F0EBE3' }}>
+                <td className="px-4 py-3.5">
+                  <div className="font-semibold text-[16px]" style={{ color: COLORS.TEXT_PRIMARY }}>{r.facility_name}</div>
+                  <div className="text-[13px] mt-0.5" style={{ color: COLORS.TEXT_SECONDARY }}>{r.totalTeams} {t('teams')} · {r.eligible.toLocaleString()} {t('eligible')}</div>
                 </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2.5">
+                <td className="px-4 py-3.5">
+                  <div className="flex items-center gap-3">
                     <div className="w-20">
-                      <CoverageBar pct={r.pct_complete} mode={mode} height="h-[4px]" />
+                      <CoverageBar pct={r.pct_complete} mode={mode} height="h-[5px]" />
                     </div>
-                    <span className={`font-data text-[12px] font-semibold ${vis.showStatusBadges ? (r.pct_complete >= 80 ? 'text-green-700' : r.pct_complete >= 50 ? 'text-amber-600' : 'text-red-600') : 'text-slate-700'}`}>
+                    <span className="text-[17px] font-bold" style={{ color: covColor, fontVariantNumeric: 'tabular-nums' }}>
                       {r.pct_complete.toFixed(1)}%
                     </span>
                   </div>
                 </td>
-                <td className="px-4 py-3">
-                  <span className={`font-data text-[13px] font-semibold ${r.missed > 0 ? 'text-slate-700' : 'text-slate-500'}`}>{r.missed.toLocaleString()}</span>
+                <td className="px-4 py-3.5">
+                  <span className="text-[16px] font-semibold" style={{ color: r.missed > 0 ? COLORS.TEXT_PRIMARY : COLORS.TEXT_SECONDARY, fontVariantNumeric: 'tabular-nums' }}>
+                    {r.missed.toLocaleString()}
+                  </span>
                 </td>
-                <td className="px-4 py-3">
-                  <span className={`font-data text-[12px] font-medium flex items-center gap-1.5 ${partial ? 'text-amber-600' : 'text-slate-500'}`}>
-                    {partial && <IconAlertCircle size={12} className="shrink-0" />}
+                <td className="px-4 py-3.5">
+                  <span className="text-[15px] font-medium flex items-center gap-1.5" style={{ color: partial ? COLORS.ACTIVE : COLORS.TEXT_SECONDARY, fontVariantNumeric: 'tabular-nums' }}>
+                    {partial && <IconAlertCircle size={14} className="shrink-0" />}
                     {r.reportingTeams}/{r.totalTeams}
                   </span>
                 </td>
-                {vis.showStatusBadges && <td className="px-4 py-3"><StatusBadge pct={r.pct_complete} t={t} /></td>}
+                {vis.showStatusBadges && <td className="px-4 py-3.5"><StatusBadge pct={r.pct_complete} t={t} /></td>}
               </tr>
             )
           })}

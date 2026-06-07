@@ -1,3 +1,5 @@
+import { COLORS } from '@/lib/constants'
+
 export type Visibility = ReturnType<typeof getVisibility>
 
 export function getVisibility(mode: 'public' | 'full') {
@@ -11,29 +13,26 @@ export function getVisibility(mode: 'public' | 'full') {
     showTeamInHover:  !pub,
 
     barColor(pct: number): string {
-      if (pub) return '#009FDB'
-      if (pct >= 70) return '#2E7D32'
-      if (pct >= 40) return '#F9A825'
-      return '#C62828'
+      if (pct >= 70) return COLORS.ON_TRACK
+      if (pct >= 40) return COLORS.ACTIVE
+      return COLORS.CRITICAL
     },
     bubbleColor(pct: number): string {
-      if (pub) return '#009FDB'
-      if (pct >= 70) return '#2E7D32'
-      if (pct >= 40) return '#F9A825'
-      return '#C62828'
+      if (pct >= 70) return COLORS.ON_TRACK
+      if (pct >= 40) return COLORS.ACTIVE
+      return COLORS.CRITICAL
     },
-    dotColor(vaccinated: boolean): string {
-      return pub ? '#009FDB' : (vaccinated ? '#22c55e' : '#64748b')
+    dotColor(_vaccinated: boolean): string {
+      return COLORS.WHO_BLUE
     },
-    dotStroke(vaccinated: boolean): string {
-      return pub ? '#0077a8' : (vaccinated ? '#16a34a' : '#475569')
+    dotStroke(_vaccinated: boolean): string {
+      return '#005a94'
     },
     progressBarColor(pct: number): string {
-      if (pub) return '#009FDB'
-      if (pct >= 70) return '#2E7D32'
-      if (pct >= 40) return '#F9A825'
-      return '#C62828'
+      if (pct >= 70) return COLORS.ON_TRACK
+      if (pct >= 40) return COLORS.ACTIVE
+      return COLORS.CRITICAL
     },
-    gapTextClass: pub ? 'text-slate-700' : 'text-red-600 font-semibold',
+    gapTextClass: pub ? 'text-slate-700' : 'text-[#DC2626] font-semibold',
   }
 }

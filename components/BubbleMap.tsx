@@ -14,7 +14,7 @@ import { HouseholdCard, RefusalCard, ZeroDoseCard } from '@/components/map/Hover
 import { FilterSidebar } from '@/components/map/FilterSidebar'
 import type { FacilityItem } from '@/components/map/FilterSidebar'
 import { getVisibility } from '@/lib/visibility'
-import { DIGIT_ORANGE } from '@/lib/constants'
+import { DIGIT_ORANGE, COLORS, REFUSAL_COLOR } from '@/lib/constants'
 
 const ZOOM_THRESHOLD = 14
 
@@ -219,11 +219,11 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
         { color: '#F9A825', label: '≥ 40% — Active' },
         { color: '#C62828', label: '< 40% — Critical' },
       ]
-    : [{ color: '#009FDB', label: 'Health facility' }]
+    : [{ color: '#006EB6', label: 'Health facility' }]
 
   const activeDotLegend = useMemo(() => {
     const items: { color: string; label: string }[] = []
-    if (showHouseholds && !vis.showStatusBadges) items.push({ color: '#009FDB', label: 'Household' })
+    if (showHouseholds && !vis.showStatusBadges) items.push({ color: '#006EB6', label: 'Household' })
     if (showHouseholds && vis.showStatusBadges) {
       items.push({ color: '#22c55e', label: 'Household — vaccinated' })
       items.push({ color: '#64748b', label: 'Household — not yet' })
@@ -239,16 +239,16 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
       {/* ── Header ── */}
       <div className="h-[52px] flex-shrink-0 flex items-center justify-between px-5 border-b border-gray-200 bg-white z-10 gap-4">
         <div className="flex items-center gap-3 min-w-0">
-          <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#009FDB]">
+          <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#006EB6]">
             <IconArrowLeft size={16} /> {t('← Back').replace('← ', '')}
           </button>
           <div className="w-px h-5 bg-gray-200" />
-          <span className="bg-blue-800 text-white text-[10px] font-bold px-2 py-0.5 rounded shrink-0 tracking-wide">WHO AFRO</span>
-          <span className="text-sm font-semibold whitespace-nowrap">Chad Polio SIA · Enumeration Dashboard</span>
-          <span className="text-xs text-gray-400 whitespace-nowrap hidden md:block">N&apos;Djamena · Jun 2026</span>
+          <span className="bg-blue-800 text-white text-[13px] font-bold px-2 py-0.5 rounded shrink-0 tracking-wide">WHO AFRO</span>
+          <span className="text-[14px] font-semibold whitespace-nowrap">Chad Polio SIA · Enumeration Dashboard</span>
+          <span className="text-[13px] text-gray-400 whitespace-nowrap hidden md:block">N&apos;Djamena · Jun 2026</span>
           {filterCount > 0 && (
             <span
-              className="text-[10px] font-semibold px-2 py-0.5 rounded-full text-white flex-shrink-0"
+              className="text-[12px] font-semibold px-2 py-0.5 rounded-full text-white flex-shrink-0"
               style={{ background: DIGIT_ORANGE }}
             >
               {filterCount} filter{filterCount > 1 ? 's' : ''} active
@@ -331,7 +331,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
                     <div style={{ minWidth: 160, fontFamily: 'system-ui, sans-serif' }}>
                       <div style={{ fontWeight: 700, fontSize: 13, color: '#003F72', marginBottom: 6 }}>{fac.name}</div>
                       <div style={{ fontSize: 11, color: '#475569', marginBottom: 2 }}>
-                        <b style={{ color: '#009FDB' }}>{fac.covPct.toFixed(1)}%</b> coverage
+                        <b style={{ color: '#006EB6' }}>{fac.covPct.toFixed(1)}%</b> coverage
                       </div>
                       <div style={{ fontSize: 11, color: '#64748b' }}>{fac.records.toLocaleString()} households</div>
                     </div>
@@ -351,13 +351,16 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
               )
             })}
 
-            {/* Refusal dots — always #C62828, both modes */}
-            {zoom >= ZOOM_THRESHOLD && visibleRefusals.map((loc, i) => (
-              <CircleMarker key={`r-${i}`} center={[loc.lat, loc.lng]} radius={7}
-                renderer={canvasRenderer}
-                pathOptions={{ color: '#8B0000', fillColor: '#C62828', fillOpacity: 0.92, weight: 1.5 }}
-              />
-            ))}
+            {/* Refusal dots — color per reason, both modes */}
+            {zoom >= ZOOM_THRESHOLD && visibleRefusals.map((loc, i) => {
+              const fillColor = REFUSAL_COLOR[loc.reason_for_refusal ?? 'UNKNOWN'] ?? COLORS.REFUSAL
+              return (
+                <CircleMarker key={`r-${i}`} center={[loc.lat, loc.lng]} radius={7}
+                  renderer={canvasRenderer}
+                  pathOptions={{ color: fillColor, fillColor, fillOpacity: 0.92, weight: 1.5 }}
+                />
+              )
+            })}
 
             {/* Zero-dose dots — always #F9A825, both modes */}
             {zoom >= ZOOM_THRESHOLD && visibleZerodose.map((loc, i) => (
@@ -428,7 +431,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
           <div className="absolute top-3 right-3 z-[800]">
             <button
               onClick={() => setSatOn(s => !s)}
-              className="bg-white/95 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#009FDB]"
+              className="bg-white/95 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#006EB6]"
             >
               {satOn ? '🗺 Street' : '🛰 Satellite'}
             </button>
@@ -442,8 +445,8 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
           )}
 
           {/* Legend */}
-          <div className="absolute bottom-6 left-3 z-[800] bg-white/96 border border-gray-200 rounded-lg px-3 py-2.5 shadow text-xs min-w-[170px]">
-            <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Coverage status</div>
+          <div className="absolute bottom-6 left-3 z-[800] bg-white/96 border border-gray-200 rounded-lg px-3 py-2.5 shadow text-[13px] min-w-[180px]">
+            <div className="text-[12px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Coverage status</div>
             {LEGEND_TIERS.map(({ color, label }) => (
               <div key={label} className="flex items-center gap-1.5 mb-1 text-gray-600">
                 <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
@@ -453,7 +456,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
             {zoom >= ZOOM_THRESHOLD && activeDotLegend.length > 0 && (
               <>
                 <hr className="my-1.5 border-gray-100" />
-                <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">GPS dots</div>
+                <div className="text-[12px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">GPS dots</div>
                 {activeDotLegend.map(({ color, label }) => (
                   <div key={label} className="flex items-center gap-1.5 mb-1 text-gray-600">
                     <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
@@ -463,7 +466,7 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
               </>
             )}
             <hr className="my-1.5 border-gray-100" />
-            <div className="text-[10px] text-gray-400">Bubble size = records collected</div>
+            <div className="text-[12px] text-gray-400">Bubble size = records collected</div>
           </div>
         </div>
       </div>

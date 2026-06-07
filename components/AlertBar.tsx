@@ -3,6 +3,13 @@ import { useState } from 'react'
 import { IconAlertTriangle, IconX } from '@tabler/icons-react'
 import { useDashboard } from '@/lib/dashboard-context'
 import { getVisibility } from '@/lib/visibility'
+import type { CSSProperties } from 'react'
+
+function stalePillStyle(hours: number): CSSProperties {
+  if (hours >= 48) return { background: '#FEE2E2', color: '#BE123C', border: '1px solid #FECACA' }
+  if (hours >= 24) return { background: '#FFEDD5', color: '#C2410C', border: '1px solid #FED7AA' }
+  return { background: '#FEF9C3', color: '#854D0E', border: '1px solid #FEF08A' }
+}
 
 export function AlertBar() {
   const { data, mode, t } = useDashboard()
@@ -20,23 +27,32 @@ export function AlertBar() {
     entry.maxHours = Math.max(entry.maxHours, Math.floor(r.hours_since_sync))
   }
 
+  const sorted = Array.from(byHF.entries()).sort((a, b) => b[1].maxHours - a[1].maxHours)
+
   return (
     <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-md px-4 py-3">
-      <IconAlertTriangle className="mt-px shrink-0 text-red-500" size={15} />
-      <div className="flex-1 min-w-0 text-sm text-red-800">
-        <span className="font-condensed text-[10px] font-bold tracking-[0.2em] uppercase text-red-600 mr-2">
+      <IconAlertTriangle className="mt-0.5 shrink-0 text-red-500" size={16} />
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] font-bold uppercase tracking-wide text-red-700 mb-2">
           {t('Silent Teams (>6h no sync)')}
-        </span>
-        {Array.from(byHF.entries()).map(([hf, { users, maxHours }], i) => (
-          <span key={hf}>
-            {i > 0 && <span className="text-red-300 mx-1">·</span>}
-            <strong className="font-semibold">{hf}</strong>
-            {' '}({users.join(', ')}) — {maxHours}{t('h ago')}
-          </span>
-        ))}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {sorted.map(([hf, { maxHours }]) => (
+            <span
+              key={hf}
+              className="inline-flex items-center gap-1.5 text-[13px] font-semibold px-3 py-1 rounded-full"
+              style={stalePillStyle(maxHours)}
+            >
+              {hf} · {maxHours}h
+            </span>
+          ))}
+        </div>
       </div>
-      <button onClick={() => setDismissed(true)} className="shrink-0 text-red-400 hover:text-red-600 transition-colors">
-        <IconX size={14} />
+      <button
+        onClick={() => setDismissed(true)}
+        className="shrink-0 text-red-400 hover:text-red-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+      >
+        <IconX size={15} />
       </button>
     </div>
   )

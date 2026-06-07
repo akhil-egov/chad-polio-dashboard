@@ -64,11 +64,11 @@ function TabsTrigger({ value, className, children }: { value: string; className?
       aria-selected={active}
       onClick={() => ctx.onValueChange(value)}
       className={cn(
-        'font-condensed relative inline-flex items-center justify-center whitespace-nowrap',
-        'px-5 py-3 text-[11px] font-bold tracking-[0.18em] uppercase',
-        'border-b-2 -mb-px transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#009FDB]',
+        'relative inline-flex items-center justify-center whitespace-nowrap',
+        'px-5 py-3 text-[14px] font-bold tracking-wide uppercase',
+        'border-b-2 -mb-px transition-colors outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#006EB6]',
         active
-          ? 'border-[#009FDB] text-[#003F72]'
+          ? 'border-[#006EB6] text-[#1A1F2E]'
           : 'border-transparent text-slate-500 hover:text-slate-600',
         className
       )}
