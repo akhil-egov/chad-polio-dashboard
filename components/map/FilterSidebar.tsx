@@ -86,7 +86,7 @@ export function FilterSidebar({
   const [sortHighToLow, setSortHighToLow] = useState(true)
 
   return (
-    <div className="w-[220px] flex flex-col bg-white overflow-hidden">
+    <div className="w-[220px] h-full flex flex-col bg-white overflow-hidden">
 
       {/* Header */}
       <div className="px-3 py-2.5 flex items-center justify-between flex-shrink-0 border-b border-gray-200 bg-white">

@@ -235,11 +235,11 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
     <div className="flex flex-col w-full h-full bg-white" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" }}>
 
       {/* ── Map body ── */}
-      <div ref={mapContainerRef} className="flex-1 relative overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
 
-        {/* ── Floating filter panel ── */}
+        {/* ── Filter panel — outside Leaflet so scroll events are never stolen ── */}
         {panelOpen && (
-          <div className="absolute top-3 left-3 z-[850] flex flex-col rounded-lg shadow-lg border border-gray-200 overflow-hidden" style={{ maxHeight: 'calc(100% - 210px)' }}>
+          <div className="w-[220px] flex-shrink-0 h-full border-r border-gray-200 overflow-hidden shadow-sm">
             <FilterSidebar
             facilities={facilities}
             filteredFacilities={filteredFacilities}
@@ -274,6 +274,9 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
             />
           </div>
         )}
+
+        {/* ── Map area ── */}
+        <div ref={mapContainerRef} className="flex-1 relative overflow-hidden">
 
         {/* ── Filters pill + active filter chip when panel is closed ── */}
         {!panelOpen && (
@@ -470,6 +473,7 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
             <hr className="my-1.5 border-gray-100" />
             <div className="text-[12px] text-gray-400">Bubble size = eligible children (0–59m)</div>
           </div>
+        </div>
         </div>
     </div>
   )

@@ -18,7 +18,6 @@ export function getVisibility(mode: 'public' | 'full') {
       return COLORS.CRITICAL
     },
     bubbleColor(pct: number): string {
-      if (pub) return COLORS.WHO_BLUE
       if (pct >= 70) return COLORS.ON_TRACK
       if (pct >= 40) return COLORS.ACTIVE
       return COLORS.CRITICAL
