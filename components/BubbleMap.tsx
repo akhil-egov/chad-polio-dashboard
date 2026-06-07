@@ -28,7 +28,7 @@ function makeBubbleIcon(abbrev: string, covPct: number, records: number, color: 
   if (_iconCache.has(key)) return _iconCache.get(key)!
   const r = Math.max(24, Math.min(56, Math.sqrt(records / 10) * 3.2))
   const sz = Math.round(r * 2)
-  const fs1 = sz > 56 ? 10 : 9
+  const fs1 = 10
   const fs2 = sz > 56 ? 13 : 11
   const icon = L.divIcon({
     className: '',
