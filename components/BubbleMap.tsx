@@ -107,7 +107,7 @@ function DotHoverTracker({ dots, zoom, onHover }: {
 }
 
 // ── Main component ───────────────────────────────────────────────────────────
-export function BubbleMap({ onBack }: { onBack: () => void }) {
+export function BubbleMap({ onBack }: { onBack?: () => void }) {
   const { data, mode, t } = useDashboard()
   const vis = getVisibility(mode)
 
@@ -232,15 +232,19 @@ export function BubbleMap({ onBack }: { onBack: () => void }) {
   }, [showHouseholds, showRefusals, showZerodose, mode, visibleRefusals.length, visibleZerodose.length])
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-white" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" }}>
+    <div className="flex flex-col w-full h-full bg-white" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" }}>
 
       {/* ── Header ── */}
       <div className="h-[52px] flex-shrink-0 flex items-center justify-between px-5 border-b border-gray-200 bg-white z-10 gap-4">
         <div className="flex items-center gap-3 min-w-0">
-          <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#006EB6]">
-            <IconArrowLeft size={16} /> {t('← Back').replace('← ', '')}
-          </button>
-          <div className="w-px h-5 bg-gray-200" />
+          {onBack && (
+            <>
+              <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#006EB6]">
+                <IconArrowLeft size={16} /> {t('← Back').replace('← ', '')}
+              </button>
+              <div className="w-px h-5 bg-gray-200" />
+            </>
+          )}
           <span className="bg-blue-800 text-white text-[13px] font-bold px-2 py-0.5 rounded shrink-0 tracking-wide">WHO AFRO</span>
           <span className="text-[14px] font-semibold whitespace-nowrap">Chad Polio SIA · Enumeration Dashboard</span>
           <span className="text-[13px] text-gray-400 whitespace-nowrap hidden md:block">N&apos;Djamena · Jun 2026</span>
