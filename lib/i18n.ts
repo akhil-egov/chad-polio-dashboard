@@ -12,7 +12,7 @@ const dict: Record<string, { en: string; fr: string }> = {
   'Map': { en: 'Map', fr: 'Carte' },
   'Team Activity': { en: 'Team Activity', fr: 'Activité des équipes' },
   'Microplan': { en: 'Microplan', fr: 'Microplan' },
-  'Analytics': { en: 'Analytics', fr: 'Analytiques' },
+  'Demographics': { en: 'Demographics', fr: 'Démographie' },
   'Silent Teams (>6h no sync)': { en: 'Silent Teams (>6h no sync)', fr: 'Équipes silencieuses (>6h sans sync)' },
   'h ago': { en: 'h ago', fr: 'h' },
   'Children Enumerated': { en: 'Children Enumerated', fr: 'Enfants dénombrés' },

@@ -10,7 +10,6 @@ import { TeamActivityTable } from '@/components/TeamActivityTable'
 import { ActivityFilter } from '@/components/ActivityFilter'
 import { MicroplanTable } from '@/components/MicroplanTable'
 import { StockTable } from '@/components/StockTable'
-import { RefusalsTable } from '@/components/RefusalsTable'
 import { SettlementPanel } from '@/components/SettlementPanel'
 import { DemographicsPanel } from '@/components/DemographicsPanel'
 import { AbsentMissedTab } from '@/components/AbsentMissedTab'
@@ -181,7 +180,7 @@ function HomeContent() {
                 <TabsTrigger value="team-activity">{t('Team Activity')}</TabsTrigger>
               )}
               <TabsTrigger value="microplan">{t('Microplan')}</TabsTrigger>
-              <TabsTrigger value="analytics">{t('Analytics')}</TabsTrigger>
+              <TabsTrigger value="demographics">{t('Demographics')}</TabsTrigger>
               <TabsTrigger value="absent-missed">{t('Absent & Missed')}</TabsTrigger>
             </TabsList>
           </div>
@@ -222,7 +221,7 @@ function HomeContent() {
             </div>
           </TabsContent>
 
-          <TabsContent value="analytics" className="space-y-5 md:space-y-6">
+          <TabsContent value="demographics" className="space-y-5 md:space-y-6">
             <div>
               <h2 className="text-[15px] font-bold tracking-wide uppercase mb-3 md:mb-4" style={{ color: '#006EB6' }}>
                 {t('Demographics — Vaccinated by Age & Gender')}
@@ -234,12 +233,6 @@ function HomeContent() {
                 {t('Settlement Type Breakdown')}
               </h2>
               <SettlementPanel />
-            </div>
-            <div>
-              <h2 className="text-[15px] font-bold tracking-wide uppercase mb-3 md:mb-4" style={{ color: '#006EB6' }}>
-                {t('Refusals by Facility')}
-              </h2>
-              <RefusalsTable />
             </div>
           </TabsContent>
 
