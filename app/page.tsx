@@ -86,8 +86,8 @@ function HomeContent() {
 
   return (
     <div className={`${isMap ? 'h-screen' : 'min-h-screen wr-bg-grid'} flex flex-col`} style={{ background: '#F5F0E8' }}>
-      {/* ── Header ── */}
-      <header className="flex-none bg-white border-b" style={{ borderColor: '#E5E0D8' }}>
+      {/* ── Header — hidden on Map tab to maximise map space ── */}
+      <header className={`flex-none bg-white border-b${isMap ? ' hidden' : ''}`} style={{ borderColor: '#E5E0D8' }}>
         <div className="max-w-[1380px] mx-auto px-4 md:px-6 py-3 md:py-4 flex items-center gap-3 md:gap-5">
 
           {/* Live indicator */}
@@ -162,7 +162,9 @@ function HomeContent() {
         ? 'flex-1 min-h-0 flex flex-col overflow-hidden'
         : 'flex-1 max-w-[1380px] mx-auto w-full px-4 md:px-6 py-4 md:py-5 space-y-4 md:space-y-5'
       }>
-        {!isMap && <AlertBar />}
+        {/* COMMENTED OUT: inactive_users data not shown — silent teams query pending.
+            Re-enable once correct ES query is confirmed.
+        {!isMap && <AlertBar />} */}
 
         <Tabs
           value={activeTab}
@@ -179,11 +181,20 @@ function HomeContent() {
               {vis.showTeamActivity && (
                 <TabsTrigger value="team-activity">{t('Team Activity')}</TabsTrigger>
               )}
-              <TabsTrigger value="microplan">{t('Microplan')}</TabsTrigger>
+              {/* COMMENTED OUT: microplan tab — gap numbers misleading mid-campaign.
+                  Re-enable once targets and achieved numbers are confirmed.
+              <TabsTrigger value="microplan">{t('Microplan')}</TabsTrigger> */}
               <TabsTrigger value="demographics">{t('Demographics')}</TabsTrigger>
               <TabsTrigger value="absent-missed">{t('Absent & Missed')}</TabsTrigger>
             </TabsList>
           </div>
+
+          {/* Dark date filter strip — map tab only */}
+          {isMap && (
+            <div className="flex-none flex items-center px-3 gap-2 bg-slate-900" style={{ height: 32 }}>
+              <DateFilter dark />
+            </div>
+          )}
 
           <TabsContent value="map" className={isMap ? 'flex-1 min-h-0 mt-0 overflow-hidden' : ''}>
             <BubbleMap />
@@ -206,6 +217,7 @@ function HomeContent() {
             <TeamActivityTable />
           </TabsContent>
 
+          {/* COMMENTED OUT: microplan tab content — hidden until gap numbers confirmed.
           <TabsContent value="microplan" className="space-y-5 md:space-y-6">
             <div>
               <h2 className="text-[15px] font-bold tracking-wide uppercase mb-3 md:mb-4" style={{ color: '#006EB6' }}>
@@ -219,7 +231,7 @@ function HomeContent() {
               </h2>
               <StockTable />
             </div>
-          </TabsContent>
+          </TabsContent> */}
 
           <TabsContent value="demographics" className="space-y-5 md:space-y-6">
             <div>

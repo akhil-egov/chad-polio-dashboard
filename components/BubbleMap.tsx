@@ -5,16 +5,15 @@ import L from 'leaflet'
 import type { GeoJsonObject } from 'geojson'
 import type { PathOptions } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { IconArrowLeft } from '@tabler/icons-react'
+import { IconFilter } from '@tabler/icons-react'
 import { useDashboard } from '@/lib/dashboard-context'
-import { DateFilter } from '@/components/DateFilter'
 import { useMapState } from '@/lib/use-map-state'
 import type { AnyDot } from '@/lib/use-map-state'
 import { HouseholdCard, RefusalCard, ZeroDoseCard } from '@/components/map/HoverCards'
 import { FilterSidebar } from '@/components/map/FilterSidebar'
 import type { FacilityItem } from '@/components/map/FilterSidebar'
 import { getVisibility } from '@/lib/visibility'
-import { DIGIT_ORANGE, COLORS, REFUSAL_COLOR } from '@/lib/constants'
+import { COLORS, REFUSAL_COLOR } from '@/lib/constants'
 
 const ZOOM_THRESHOLD = 14
 
@@ -32,7 +31,7 @@ function makeBubbleIcon(abbrev: string, covPct: number, records: number, color: 
   const fs2 = sz > 56 ? 13 : 11
   const icon = L.divIcon({
     className: '',
-    html: `<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${color};border:3px solid rgba(255,255,255,0.9);box-shadow:0 2px 12px rgba(0,0,0,0.28);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;"><div style="font-size:${fs1}px;font-weight:700;color:rgba(255,255,255,0.92);line-height:1.1;text-align:center;padding:0 3px;white-space:nowrap;">${abbrev}</div><div style="font-size:${fs2}px;font-weight:800;color:#fff;margin-top:1px;letter-spacing:-.3px;">${covPct.toFixed(1)}%</div></div>`,
+    html: `<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${color};border:3px solid rgba(255,255,255,0.9);box-shadow:0 2px 12px rgba(0,0,0,0.28);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;"><div style="font-size:${fs1}px;font-weight:700;color:rgba(255,255,255,0.92);line-height:1.2;text-align:center;padding:0 4px;white-space:normal;word-break:break-word;max-width:${sz - 10}px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${abbrev}</div><div style="font-size:${fs2}px;font-weight:800;color:#fff;margin-top:1px;letter-spacing:-.3px;">${covPct.toFixed(1)}%</div></div>`,
     iconSize: [sz, sz],
     iconAnchor: [sz / 2, sz / 2],
   })
@@ -119,6 +118,7 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
   const [adm2, setAdm2] = useState<GeoJsonObject | null>(null)
   const [satOn, setSatOn] = useState(false)
   const [hoveredDot, setHoveredDot] = useState<HoveredDot | null>(null)
+  const [panelOpen, setPanelOpen] = useState(true)
   const mapContainerRef = useRef<HTMLDivElement>(null)
 
   const {
@@ -213,18 +213,18 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
 
   const LEGEND_TIERS = vis.showStatusBadges
     ? [
-        { color: '#2E7D32', label: '≥ 70% — On track' },
-        { color: '#F9A825', label: '≥ 40% — Active' },
-        { color: '#C62828', label: '< 40% — Critical' },
+        { color: COLORS.ON_TRACK, label: '≥ 70% — On track' },
+        { color: COLORS.ACTIVE,   label: '≥ 40% — Active' },
+        { color: COLORS.CRITICAL, label: '< 40% — Critical' },
       ]
-    : [{ color: '#006EB6', label: 'Health facility' }]
+    : [{ color: COLORS.WHO_BLUE, label: 'Health facility' }]
 
   const activeDotLegend = useMemo(() => {
     const items: { color: string; label: string }[] = []
-    if (showHouseholds && !vis.showStatusBadges) items.push({ color: '#006EB6', label: 'Household' })
+    if (showHouseholds && !vis.showStatusBadges) items.push({ color: COLORS.WHO_BLUE, label: 'Household' })
     if (showHouseholds && vis.showStatusBadges) {
-      items.push({ color: '#22c55e', label: 'Household — vaccinated' })
-      items.push({ color: '#64748b', label: 'Household — not yet' })
+      items.push({ color: COLORS.VAX_YES, label: 'Household — vaccinated' })
+      items.push({ color: COLORS.VAX_NO,  label: 'Household — not yet' })
     }
     if (showRefusals) items.push({ color: '#C62828', label: `Refusal (${visibleRefusals.length})` })
     if (showZerodose) items.push({ color: '#F9A825', label: `Zero Dose (${visibleZerodose.length})` })
@@ -234,79 +234,79 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
   return (
     <div className="flex flex-col w-full h-full bg-white" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" }}>
 
-      {/* ── Header ── */}
-      <div className="h-[52px] flex-shrink-0 flex items-center justify-between px-5 border-b border-gray-200 bg-white z-10 gap-4">
-        <div className="flex items-center gap-3 min-w-0">
-          {onBack && (
-            <>
-              <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#006EB6]">
-                <IconArrowLeft size={16} /> {t('← Back').replace('← ', '')}
-              </button>
-              <div className="w-px h-5 bg-gray-200" />
-            </>
-          )}
-          <span className="bg-blue-800 text-white text-[13px] font-bold px-2 py-0.5 rounded shrink-0 tracking-wide">WHO AFRO</span>
-          <span className="text-[14px] font-semibold whitespace-nowrap">Chad Polio SIA · Enumeration Dashboard</span>
-          <span className="text-[13px] text-gray-400 whitespace-nowrap hidden md:block">N&apos;Djamena · Jun 2026</span>
-          {filterCount > 0 && (
-            <span
-              className="text-[12px] font-semibold px-2 py-0.5 rounded-full text-white flex-shrink-0"
-              style={{ background: DIGIT_ORANGE }}
-            >
-              {filterCount} filter{filterCount > 1 ? 's' : ''} active
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <DateFilter hideLabel />
-          <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 whitespace-nowrap">
-            <span className="inline-block w-[7px] h-[7px] rounded-full bg-green-700 mr-1.5" />
-            {data?._metadata.run_timestamp
-              ? new Date(data._metadata.run_timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Africa/Ndjamena' })
-              : '—'} · {data?.gps.length.toLocaleString()} records
+      {/* ── Map body ── */}
+      <div ref={mapContainerRef} className="flex-1 relative overflow-hidden">
+
+        {/* ── Floating filter panel ── */}
+        {panelOpen && (
+          <div className="absolute top-3 left-3 z-[850] flex flex-col rounded-lg shadow-lg border border-gray-200 overflow-hidden" style={{ maxHeight: 'calc(100% - 210px)' }}>
+            <FilterSidebar
+            facilities={facilities}
+            filteredFacilities={filteredFacilities}
+            selectedFac={selectedFac}
+            onSelect={handleSelect}
+            onClearFacility={handleClear}
+            onClearAll={handleClearAll}
+            onClose={() => setPanelOpen(false)}
+            facilitySearch={facilitySearch}
+            setFacilitySearch={setFacilitySearch}
+            showHouseholds={showHouseholds}
+            toggleHouseholds={toggleHouseholds}
+            showRefusals={showRefusals}
+            toggleRefusals={toggleRefusals}
+            showZerodose={showZerodose}
+            toggleZerodose={toggleZerodose}
+            refusalReasonCounts={refusalReasonCounts}
+            selectedReasons={selectedReasons}
+            isReasonChecked={isReasonChecked}
+            toggleReason={toggleReason}
+            selectAllReasons={selectAllReasons}
+            zeroDoseStatusCounts={zeroDoseStatusCounts}
+            selectedZdStatuses={selectedZdStatuses}
+            isZdStatusChecked={isZdStatusChecked}
+            toggleZdStatus={toggleZdStatus}
+            selectAllZdStatuses={selectAllZdStatuses}
+            householdsTotal={data?.gps.length}
+            refusalsTotal={data?.gps_refusals?.length}
+            zerodoseTotal={data?.gps_zerodose?.length}
+            filterCount={filterCount}
+            dotColor={vis.dotColor}
+            />
           </div>
-        </div>
-      </div>
+        )}
 
-      {/* ── Body ── */}
-      <div className="flex flex-1 overflow-hidden">
+        {/* ── Filters pill + active filter chip when panel is closed ── */}
+        {!panelOpen && (
+          <div className="absolute top-3 left-3 z-[850] flex flex-col gap-1.5 items-start">
+            <button
+              onClick={() => setPanelOpen(true)}
+              className="bg-white/95 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006EB6]"
+            >
+              <IconFilter size={13} className="text-gray-500" />
+              Filters
+              {filterCount > 0 && (
+                <span className="bg-[#006EB6] text-white text-[11px] font-bold px-1.5 py-0.5 rounded-full">{filterCount}</span>
+              )}
+            </button>
 
-        {/* ── Sidebar ── */}
-        <FilterSidebar
-          facilities={facilities}
-          filteredFacilities={filteredFacilities}
-          selectedFac={selectedFac}
-          onSelect={handleSelect}
-          onClearFacility={handleClear}
-          onClearAll={handleClearAll}
-          facilitySearch={facilitySearch}
-          setFacilitySearch={setFacilitySearch}
-          showHouseholds={showHouseholds}
-          toggleHouseholds={toggleHouseholds}
-          showRefusals={showRefusals}
-          toggleRefusals={toggleRefusals}
-          showZerodose={showZerodose}
-          toggleZerodose={toggleZerodose}
-          refusalReasonCounts={refusalReasonCounts}
-          selectedReasons={selectedReasons}
-          isReasonChecked={isReasonChecked}
-          toggleReason={toggleReason}
-          selectAllReasons={selectAllReasons}
-          zeroDoseStatusCounts={zeroDoseStatusCounts}
-          selectedZdStatuses={selectedZdStatuses}
-          isZdStatusChecked={isZdStatusChecked}
-          toggleZdStatus={toggleZdStatus}
-          selectAllZdStatuses={selectAllZdStatuses}
-          householdsTotal={data?.gps.length}
-          refusalsTotal={data?.gps_refusals?.length}
-          zerodoseTotal={data?.gps_zerodose?.length}
-          filterCount={filterCount}
-          dotColor={vis.dotColor}
-        />
+            {filterCount > 0 && (
+              <div className="bg-white/95 border border-gray-200 shadow-sm rounded-full px-3 py-1 text-xs flex items-center gap-1.5 max-w-[200px]">
+                <span className="font-medium text-gray-700 truncate">
+                  {selectedFac && filterCount === 1 ? selectedFac : `${filterCount} filters active`}
+                </span>
+                <button
+                  onClick={() => selectedFac && filterCount === 1 ? handleClear() : handleClearAll()}
+                  className="text-gray-400 hover:text-gray-700 transition-colors focus-visible:outline-none flex-shrink-0"
+                  aria-label="Clear filter"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
-        {/* ── Map ── */}
-        <div ref={mapContainerRef} className="flex-1 relative min-w-0">
-          <MapContainer center={DEFAULT_CENTER} zoom={DEFAULT_ZOOM} className="absolute inset-0" style={{ zIndex: 0 }}>
+        <MapContainer center={DEFAULT_CENTER} zoom={DEFAULT_ZOOM} className="absolute inset-0" style={{ zIndex: 0 }}>
             <TileLayer
               key={satOn ? 'sat' : 'osm'}
               url={satOn
@@ -379,7 +379,7 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
 
           {/* ── Hover card ── */}
           {hoveredDot && zoom >= ZOOM_THRESHOLD && (() => {
-            const mapWidth = mapContainerRef.current?.offsetWidth ?? window.innerWidth - 290
+            const mapWidth = mapContainerRef.current?.offsetWidth ?? window.innerWidth
             const x = hoveredDot.x
             const y = hoveredDot.y
             let transform = 'translate(-50%, calc(-100% - 12px))'
@@ -387,7 +387,7 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
               transform = 'translate(-100%, calc(-100% - 12px))'
             } else if (y < 120) {
               transform = 'translate(-50%, 12px)'
-            } else if (x < 260) {
+            } else if (x < 235) {
               transform = 'translate(12px, -50%)'
             }
             return (
@@ -422,15 +422,15 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
            *   Hover card:           z-[900]  — topmost, floats over everything
            */}
 
-          {/* Stats bar */}
-          <div className="absolute top-3 right-14 z-[800] flex gap-1.5 pointer-events-none">
+          {/* Records count pill — top-right, always visible */}
+          <div className="absolute top-3 right-3 z-[800] pointer-events-none">
             <div className="bg-white/95 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-600 shadow-sm whitespace-nowrap">
               <b>{totalVisible.toLocaleString()}</b> records visible
             </div>
           </div>
 
-          {/* Satellite toggle */}
-          <div className="absolute top-3 right-3 z-[800]">
+          {/* Satellite toggle — bottom-right, above zoom controls */}
+          <div className="absolute bottom-16 right-3 z-[800]">
             <button
               onClick={() => setSatOn(s => !s)}
               className="bg-white/95 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#006EB6]"
@@ -471,7 +471,6 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
             <div className="text-[12px] text-gray-400">Bubble size = eligible children (0–59m)</div>
           </div>
         </div>
-      </div>
     </div>
   )
 }

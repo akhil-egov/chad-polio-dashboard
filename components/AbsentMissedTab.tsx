@@ -4,7 +4,7 @@ import { useDashboard } from '@/lib/dashboard-context'
 import { getVisibility } from '@/lib/visibility'
 import { COLORS, KPI_ACCENT } from '@/lib/constants'
 import { RefusalsTable } from '@/components/RefusalsTable'
-import { settlementBreakdown } from '@/lib/campaign-queries'
+import { campaignKPIs, settlementBreakdown } from '@/lib/campaign-queries'
 
 function SimpleCard({ title, value, sub, accentColor }: {
   title: string; value: string; sub: string; accentColor: string
@@ -30,9 +30,11 @@ export function AbsentMissedTab() {
   const vis = getVisibility(mode)
   const [facilityFilter, setFacilityFilter] = useState<string>('')
 
+  // FIXME: gap removed from microplan — use enumeration-derived count instead.
+  // eligible_children − vaccinated_children = found but not yet vaccinated.
   const totalMissed = useMemo(
-    () => (data?.microplan ?? []).reduce((s, r) => s + r.gap, 0),
-    [data?.microplan]
+    () => data ? campaignKPIs(data).missed : 0,
+    [data]
   )
 
   const totalRefusals = useMemo(
@@ -112,7 +114,7 @@ export function AbsentMissedTab() {
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <SimpleCard title={t('Total Missed')} value={totalMissed.toLocaleString()} sub={t('missed children')} accentColor={KPI_ACCENT.missed} />
+        <SimpleCard title={t('Missed Children')} value={totalMissed.toLocaleString()} sub={t('Found, not yet vaccinated')} accentColor={KPI_ACCENT.missed} />
         <SimpleCard title={t('Total Refusals')} value={totalRefusals.toLocaleString()} sub={t('total refusals recorded')} accentColor={COLORS.REFUSAL} />
         <SimpleCard title={t('Zero-Dose Unvaccinated')} value={zeroDoseUnvaccinated.toLocaleString()} sub={t('still unvaccinated')} accentColor={COLORS.ZERODOSE} />
       </div>

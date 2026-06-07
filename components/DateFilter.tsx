@@ -8,7 +8,7 @@ function formatLabel(isoDate: string, hasVacc: boolean, lang: string) {
   return hasVacc ? `${label} +Vacc` : label
 }
 
-export function DateFilter({ hideLabel }: { hideLabel?: boolean } = {}) {
+export function DateFilter({ hideLabel, dark }: { hideLabel?: boolean; dark?: boolean } = {}) {
   const { data, selectedDate, setSelectedDate, lang, t } = useDashboard()
 
   const dates = data
@@ -23,6 +23,29 @@ export function DateFilter({ hideLabel }: { hideLabel?: boolean } = {}) {
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([date, hasVacc]) => ({ value: date, label: formatLabel(date, hasVacc, lang) }))
     : []
+
+  if (dark) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-white/50 text-xs">{t('Day:')}</span>
+        <button
+          onClick={() => setSelectedDate(null)}
+          className={`text-xs rounded-full px-3 py-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 ${!selectedDate ? 'bg-white/25 text-white' : 'bg-white/10 text-white/70 hover:bg-white/15'}`}
+        >
+          {t('All')}
+        </button>
+        {dates.map(d => (
+          <button
+            key={d.value}
+            onClick={() => setSelectedDate(d.value)}
+            className={`text-xs rounded-full px-3 py-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 ${selectedDate === d.value ? 'bg-white/25 text-white' : 'bg-white/10 text-white/70 hover:bg-white/15'}`}
+          >
+            {d.label}
+          </button>
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div className="flex items-center gap-2 flex-wrap">

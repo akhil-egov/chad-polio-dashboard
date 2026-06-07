@@ -1,4 +1,5 @@
 'use client'
+import { useState } from 'react'
 import { IconFilter, IconSearch, IconX } from '@tabler/icons-react'
 import { DIGIT_ORANGE, REFUSAL_LABEL, REFUSAL_COLOR } from '@/lib/constants'
 
@@ -46,6 +47,7 @@ interface FilterSidebarProps {
   refusalsTotal: number | undefined
   zerodoseTotal: number | undefined
   filterCount: number
+  onClose: () => void
   // Visibility
   dotColor: (vaccinated: boolean) => string
 }
@@ -78,30 +80,42 @@ export function FilterSidebar({
   refusalsTotal,
   zerodoseTotal,
   filterCount,
+  onClose,
   dotColor,
 }: FilterSidebarProps) {
+  const [sortHighToLow, setSortHighToLow] = useState(true)
+
   return (
-    <div className="w-[290px] flex-shrink-0 flex flex-col border-r border-gray-200 overflow-hidden">
+    <div className="w-[220px] flex flex-col bg-white overflow-hidden">
 
       {/* Header */}
-      <div style={{ background: DIGIT_ORANGE }} className="px-4 py-3 flex items-center justify-between flex-shrink-0">
+      <div className="px-3 py-2.5 flex items-center justify-between flex-shrink-0 border-b border-gray-200 bg-white">
         <div className="flex items-center gap-2">
-          <IconFilter size={16} color="white" />
-          <span className="text-white text-[13px] font-bold uppercase tracking-widest">Filters</span>
+          <IconFilter size={14} className="text-slate-500" />
+          <span className="text-slate-700 text-[13px] font-bold uppercase tracking-widest">Filters</span>
           {filterCount > 0 && (
-            <span className="bg-white text-[12px] font-bold px-1.5 py-0.5 rounded-full" style={{ color: DIGIT_ORANGE }}>
+            <span className="bg-[#006EB6] text-white text-[11px] font-bold px-1.5 py-0.5 rounded-full">
               {filterCount}
             </span>
           )}
         </div>
-        {filterCount > 0 && (
+        <div className="flex items-center gap-2">
+          {filterCount > 0 && (
+            <button
+              onClick={onClearAll}
+              className="text-slate-400 text-[12px] hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006EB6]"
+            >
+              Clear
+            </button>
+          )}
           <button
-            onClick={onClearAll}
-            className="text-white/80 text-[13px] hover:text-white underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            onClick={onClose}
+            aria-label="Close filters"
+            className="text-slate-400 hover:text-slate-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006EB6] rounded"
           >
-            Clear all
+            <IconX size={14} />
           </button>
-        )}
+        </div>
       </div>
 
       {/* Search input */}
@@ -142,7 +156,7 @@ export function FilterSidebar({
 
       <div className="border-b border-gray-100 flex-shrink-0">
         <LayerRow
-          color={dotColor(false)}
+          color="#006EB6"
           label="Households"
           count={householdsTotal}
           active={showHouseholds}
@@ -216,14 +230,21 @@ export function FilterSidebar({
         )}
       </div>
 
-      {/* Call list section */}
-      <div className="px-3 py-1.5 text-[12px] font-bold text-gray-400 uppercase tracking-widest flex-shrink-0">
-        Call list · worst coverage first
+      {/* Health Facilities section */}
+      <div className="px-3 py-1.5 flex items-center justify-between flex-shrink-0">
+        <span className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">Health Facilities</span>
+        <button
+          onClick={() => setSortHighToLow(v => !v)}
+          className="text-[11px] font-medium text-slate-500 hover:text-slate-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006EB6] rounded px-1"
+          title={sortHighToLow ? 'Sorted high → low' : 'Sorted low → high'}
+        >
+          % {sortHighToLow ? '↓' : '↑'}
+        </button>
       </div>
 
       <div className="relative flex-1 overflow-hidden">
         <div className="h-full overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e5e7eb transparent' }}>
-          {filteredFacilities.map(fac => {
+          {[...filteredFacilities].sort((a, b) => sortHighToLow ? b.covPct - a.covPct : a.covPct - b.covPct).map(fac => {
             const sel = selectedFac === fac.name
             return (
               <div
@@ -232,7 +253,7 @@ export function FilterSidebar({
                 role="button"
                 tabIndex={0}
                 onKeyDown={e => e.key === 'Enter' && onSelect(fac.name)}
-                className={`flex items-stretch cursor-pointer border-b border-gray-50 h-14 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#006EB6] ${sel ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                className={`flex items-stretch cursor-pointer border-b border-gray-50 min-h-14 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#006EB6] ${sel ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
               >
                 <div className="flex-shrink-0 transition-all" style={{ background: fac.color, width: sel ? '6px' : '4px' }} />
                 <div className="flex-1 px-3 py-2 min-w-0 flex flex-col justify-center">
@@ -242,7 +263,7 @@ export function FilterSidebar({
                   </div>
                 </div>
                 <div className="px-3 py-2 text-right flex flex-col justify-center flex-shrink-0">
-                  <div className="text-[13px] font-semibold text-gray-800">{fac.records.toLocaleString()}</div>
+                  <div className="text-[13px] font-semibold text-gray-800">{fac.records.toLocaleString('en-US')}</div>
                   <div className="text-[12px] text-slate-500 mt-0.5">eligible 0–59m</div>
                 </div>
               </div>
@@ -275,7 +296,7 @@ function LayerRow({ color, label, count, active, onToggle }: {
       </span>
       {count != null && (
         <span className={`text-[12px] ${active ? 'text-gray-400' : 'text-gray-300'}`}>
-          {count.toLocaleString()}
+          {count.toLocaleString('en-US')}
         </span>
       )}
       <span className={`text-[12px] font-medium ml-1 ${active ? 'text-gray-500' : 'text-gray-300'}`}>
