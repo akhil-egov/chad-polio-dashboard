@@ -75,9 +75,8 @@ export function KPICards() {
       const daily = data.coverage
         .filter(r => r.date === selectedDate)
         .reduce((s, r) => s + r.vaccinated, 0)
-      // pct = daily vaccinated / that day's eligible children
-      const denom = eligibleChildren > 0 ? eligibleChildren : kpis.enumerated
-      return { vaccinated: daily, pct: denom > 0 ? Math.round((daily / denom) * 100) : 0 }
+      // pct = daily vaccinated / campaign total eligible (avoids >100% on partial enumeration days)
+      return { vaccinated: daily, pct: kpis.enumerated > 0 ? Math.round((daily / kpis.enumerated) * 100) : 0 }
     }
     // Campaign total: sum of max cumulative_vaccinated per facility (most up-to-date)
     const maxCum = new Map<string, number>()
@@ -87,7 +86,7 @@ export function KPICards() {
     }
     const vacc = Array.from(maxCum.values()).reduce((s, v) => s + v, 0)
     return { vaccinated: vacc, pct: kpis.enumerated > 0 ? Math.round((vacc / kpis.enumerated) * 100) : 0 }
-  }, [data.coverage, selectedDate, eligibleChildren, kpis.enumerated])
+  }, [data.coverage, selectedDate, kpis.enumerated])
 
   const todayTeams = useMemo(() => {
     if (selectedDate) {
