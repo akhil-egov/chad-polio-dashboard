@@ -143,11 +143,20 @@ export interface RefusalRow {
   count: number
 }
 
+export interface EnumerationDailyRow {
+  facility_name: string
+  facility_id: string
+  date: string
+  households_registered: number
+  eligible_children: number
+}
+
 export interface DashboardData {
   _metadata: Metadata
   coverage: CoverageRow[]
   activity: ActivityRow[]
   enumeration: EnumerationRow[]
+  enumeration_daily: EnumerationDailyRow[]
   stock: StockRow[]
   stock_daily: StockDailyRow[]
   gps: GpsRow[]

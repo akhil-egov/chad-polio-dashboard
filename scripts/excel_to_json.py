@@ -52,6 +52,15 @@ def convert(xlsx_path: str, out_path: str):
     # enumeration
     data['enumeration'] = rows(xl.parse('enumeration'))
 
+    # enumeration_daily
+    if 'enumeration_daily' in xl.sheet_names:
+        ed = xl.parse('enumeration_daily')
+        if 'date' in ed.columns:
+            ed['date'] = ed['date'].apply(lambda v: None if pd.isna(v) else str(v)[:10])
+        data['enumeration_daily'] = rows(ed)
+    else:
+        data['enumeration_daily'] = []
+
     # stock
     data['stock'] = rows(xl.parse('stock'))
 

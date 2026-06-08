@@ -60,13 +60,21 @@ export function KPICards() {
   const vis = getVisibility(mode)
   const kpis = campaignKPIs(data)
 
+  // Eligible children denominator — daily count when date selected, campaign total otherwise
+  const eligibleChildren = useMemo(() => {
+    if (!selectedDate) return kpis.enumerated
+    const dayRows = (data.enumeration_daily ?? []).filter(r => r.date === selectedDate)
+    if (dayRows.length === 0) return kpis.enumerated
+    return dayRows.reduce((s, r) => s + r.eligible_children, 0)
+  }, [data.enumeration_daily, selectedDate, kpis.enumerated])
+
   const { vaccinated, pct } = useMemo(() => {
     const rows = selectedDate ? data.coverage.filter(r => r.date === selectedDate) : data.coverage
     const vacc = rows.reduce((s, r) => s + r.vaccinated, 0)
-    return { vaccinated: vacc, pct: kpis.enumerated > 0 ? Math.round((vacc / kpis.enumerated) * 100) : 0 }
-  }, [data.coverage, selectedDate, kpis.enumerated])
+    return { vaccinated: vacc, pct: eligibleChildren > 0 ? Math.round((vacc / eligibleChildren) * 100) : 0 }
+  }, [data.coverage, selectedDate, eligibleChildren])
 
-  const missed = Math.max(0, kpis.enumerated - vaccinated)
+  const missed = Math.max(0, eligibleChildren - vaccinated)
 
   const todayTeams = useMemo(() => {
     const allActivityDates = data.activity.map(r => r.date)
@@ -99,8 +107,8 @@ export function KPICards() {
       <div className={`grid ${cols} gap-4`}>
         <KPICard
           title={t('Children Enumerated')}
-          value={kpis.enumerated.toLocaleString()}
-          sub={t('Eligible 0–59m found')}
+          value={eligibleChildren.toLocaleString()}
+          sub={selectedDate ? t('Eligible 0–59m on this day') : t('Eligible 0–59m found')}
           accentColor={KPI_ACCENT.enumerated}
           vis={vis} t={t}
         />
