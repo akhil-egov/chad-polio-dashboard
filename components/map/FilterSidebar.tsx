@@ -263,6 +263,7 @@ export function FilterSidebar({
   onFilterSettlement,
 }: FilterSidebarProps) {
   const [sortHighToLow, setSortHighToLow] = useState(true)
+  const [layersExpanded, setLayersExpanded] = useState(true)
 
   return (
     <div className="w-[220px] h-full flex flex-col bg-white overflow-hidden">
@@ -337,83 +338,102 @@ export function FilterSidebar({
       )}
 
       {/* Layers section */}
-      <div className="px-3 py-1.5 text-[12px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 flex-shrink-0">
-        Layers
-      </div>
-
-      <div className="border-b border-gray-100 flex-shrink-0">
-        <LayerRow
-          color="#006EB6"
-          label="Households"
-          count={householdsTotal}
-          active={showHouseholds}
-          onToggle={toggleHouseholds}
-        />
-
-        <LayerRow
-          color="#C62828"
-          label="Refusals"
-          count={refusalsTotal}
-          active={showRefusals}
-          onToggle={toggleRefusals}
-        />
-        {showRefusals && (
-          <div className="bg-red-50/60 border-t border-red-100/60 px-3 py-2 space-y-1">
-            {selectedReasons !== null && (
-              <button
-                onClick={selectAllReasons}
-                className="text-[12px] text-[#006EB6] hover:underline w-full text-left mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006EB6]"
-              >
-                Select all
-              </button>
+      <div className="border-b border-gray-200 flex-shrink-0">
+        <button
+          onClick={() => setLayersExpanded(v => !v)}
+          className="w-full px-3 py-1.5 flex items-center justify-between bg-gray-50/80 hover:bg-gray-100/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#006EB6]"
+        >
+          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Layers</span>
+          <div className="flex items-center gap-1.5">
+            {!layersExpanded && (
+              <div className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full transition-colors" style={{ background: showHouseholds ? '#006EB6' : '#d1d5db' }} />
+                <span className="w-2 h-2 rounded-full transition-colors" style={{ background: showRefusals ? '#C62828' : '#d1d5db' }} />
+                <span className="w-2 h-2 rounded-full transition-colors" style={{ background: showZerodose ? '#F9A825' : '#d1d5db' }} />
+              </div>
             )}
-            {Object.entries(refusalReasonCounts)
-              .sort((a, b) => b[1] - a[1])
-              .map(([reason, count]) => (
-                <SubCheck
-                  key={reason}
-                  checked={isReasonChecked(reason)}
-                  label={REFUSAL_LABEL[reason] ?? reason}
-                  count={count}
-                  color={REFUSAL_COLOR[reason] ?? '#BE123C'}
-                  onToggle={() => toggleReason(reason)}
-                />
-              ))}
+            {layersExpanded
+              ? <IconChevronUp size={12} className="text-gray-400" />
+              : <IconChevronDown size={12} className="text-gray-400" />}
           </div>
-        )}
+        </button>
 
-        <LayerRow
-          color="#F9A825"
-          label="Zero Dose"
-          count={zerodoseTotal}
-          active={showZerodose}
-          onToggle={toggleZerodose}
-        />
-        {showZerodose && (
-          <div className="bg-amber-50/60 border-t border-amber-100/60 px-3 py-2 space-y-1">
-            {selectedZdStatuses !== null && (
-              <button
-                onClick={selectAllZdStatuses}
-                className="text-[12px] text-[#006EB6] hover:underline w-full text-left mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006EB6]"
-              >
-                Select all
-              </button>
-            )}
-            <SubCheck
-              checked={isZdStatusChecked('not_vaccinated')}
-              label="Not yet vaccinated"
-              count={zeroDoseStatusCounts.not_vaccinated}
+        {layersExpanded && (
+          <>
+            <LayerRow
+              color="#006EB6"
+              label="Households"
+              count={householdsTotal}
+              active={showHouseholds}
+              onToggle={toggleHouseholds}
+            />
+
+            <LayerRow
               color="#C62828"
-              onToggle={() => toggleZdStatus('not_vaccinated')}
+              label="Refusals"
+              count={refusalsTotal}
+              active={showRefusals}
+              onToggle={toggleRefusals}
             />
-            <SubCheck
-              checked={isZdStatusChecked('vaccinated')}
-              label="Vaccinated ✓"
-              count={zeroDoseStatusCounts.vaccinated}
-              color="#16a34a"
-              onToggle={() => toggleZdStatus('vaccinated')}
+            {showRefusals && (
+              <div className="bg-red-50/60 border-t border-red-100/60 px-3 py-2 space-y-1">
+                {selectedReasons !== null && (
+                  <button
+                    onClick={selectAllReasons}
+                    className="text-[12px] text-[#006EB6] hover:underline w-full text-left mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006EB6]"
+                  >
+                    Select all
+                  </button>
+                )}
+                {Object.entries(refusalReasonCounts)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([reason, count]) => (
+                    <SubCheck
+                      key={reason}
+                      checked={isReasonChecked(reason)}
+                      label={REFUSAL_LABEL[reason] ?? reason}
+                      count={count}
+                      color={REFUSAL_COLOR[reason] ?? '#BE123C'}
+                      onToggle={() => toggleReason(reason)}
+                    />
+                  ))}
+              </div>
+            )}
+
+            <LayerRow
+              color="#F9A825"
+              label="Zero Dose"
+              count={zerodoseTotal}
+              active={showZerodose}
+              onToggle={toggleZerodose}
             />
-          </div>
+            {showZerodose && (
+              <div className="bg-amber-50/60 border-t border-amber-100/60 px-3 py-2 space-y-1">
+                {selectedZdStatuses !== null && (
+                  <button
+                    onClick={selectAllZdStatuses}
+                    className="text-[12px] text-[#006EB6] hover:underline w-full text-left mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006EB6]"
+                  >
+                    Select all
+                  </button>
+                )}
+                <SubCheck
+                  checked={isZdStatusChecked('not_vaccinated')}
+                  label="Not yet vaccinated"
+                  count={zeroDoseStatusCounts.not_vaccinated}
+                  color="#C62828"
+                  onToggle={() => toggleZdStatus('not_vaccinated')}
+                />
+                <SubCheck
+                  checked={isZdStatusChecked('vaccinated')}
+                  label="Vaccinated ✓"
+                  count={zeroDoseStatusCounts.vaccinated}
+                  color="#16a34a"
+                  onToggle={() => toggleZdStatus('vaccinated')}
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
 
