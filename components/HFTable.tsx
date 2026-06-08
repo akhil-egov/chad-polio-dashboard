@@ -143,7 +143,7 @@ export function HFTable() {
                 <td className="px-4 py-3.5">
                   <span className="text-[15px] font-medium flex items-center gap-1.5" style={{ color: partial ? COLORS.ACTIVE : COLORS.TEXT_SECONDARY, fontVariantNumeric: 'tabular-nums' }}>
                     {partial && <IconAlertCircle size={14} className="shrink-0" />}
-                    {r.reportingTeams}/{r.totalTeams}
+                    <span>{r.reportingTeams}/{r.totalTeams}</span>
                   </span>
                 </td>
                 {vis.showStatusBadges && <td className="px-4 py-3.5"><StatusBadge pct={r.pct_complete} t={t} /></td>}

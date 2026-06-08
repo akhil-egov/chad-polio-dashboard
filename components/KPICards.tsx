@@ -24,19 +24,21 @@ function DeltaChip({ delta, vis, t }: { delta: Delta | null; vis: Visibility; t:
   )
 }
 
-function KPICard({ title, value, sub, accentColor, valueColor, delta, vis, t }: {
-  title: string; value: string; sub: string; accentColor: string; valueColor?: string; delta?: Delta | null; vis: Visibility; t: (k: string) => string
+function KPICard({ title, value, valueSuffix, sub, accentColor, valueColor, delta, vis, t }: {
+  title: string; value: string; valueSuffix?: string; sub: string; accentColor: string; valueColor?: string; delta?: Delta | null; vis: Visibility; t: (k: string) => string
 }) {
   return (
     <div className="relative bg-white border rounded-lg overflow-hidden flex flex-col shadow-sm" style={{ borderColor: '#E5E0D8' }}>
       <div className="h-[4px] w-full flex-none" style={{ background: accentColor }} />
       <div className="p-5 flex flex-col gap-3 flex-1">
         <p className="text-[14px] font-semibold uppercase tracking-wide text-slate-500">{title}</p>
-        <div
-          className="text-[3.5rem] font-bold leading-none"
-          style={{ color: valueColor ?? '#1A1F2E', fontVariantNumeric: 'tabular-nums' }}
-        >
-          {value}
+        <div className="leading-none" style={{ fontVariantNumeric: 'tabular-nums' }}>
+          <span className="text-[3.5rem] font-bold" style={{ color: valueColor ?? '#1A1F2E' }}>
+            {value}
+          </span>
+          {valueSuffix && (
+            <span className="text-[1.6rem] font-semibold text-slate-400 ml-2">{valueSuffix}</span>
+          )}
         </div>
         <div className="flex flex-col gap-1 mt-auto">
           <p className="text-[13px] text-slate-500">{sub}</p>
@@ -69,12 +71,17 @@ export function KPICards() {
   }, [data.enumeration_daily, selectedDate, kpis.enumerated])
 
   const { vaccinated, pct } = useMemo(() => {
-    const rows = selectedDate ? data.coverage.filter(r => r.date === selectedDate) : data.coverage
-    const vacc = rows.reduce((s, r) => s + r.vaccinated, 0)
-    return { vaccinated: vacc, pct: eligibleChildren > 0 ? Math.round((vacc / eligibleChildren) * 100) : 0 }
-  }, [data.coverage, selectedDate, eligibleChildren])
+    if (selectedDate) {
+      // Cumulative vaccinated as of this date / campaign total eligible
+      const rows = data.coverage.filter(r => r.date === selectedDate)
+      const cumulative = rows.reduce((s, r) => s + r.cumulative_vaccinated, 0)
+      return { vaccinated: cumulative, pct: kpis.enumerated > 0 ? Math.round((cumulative / kpis.enumerated) * 100) : 0 }
+    }
+    const vacc = data.coverage.reduce((s, r) => s + r.vaccinated, 0)
+    return { vaccinated: vacc, pct: kpis.enumerated > 0 ? Math.round((vacc / kpis.enumerated) * 100) : 0 }
+  }, [data.coverage, selectedDate, kpis.enumerated])
 
-  const missed = Math.max(0, eligibleChildren - vaccinated)
+  const missed = Math.max(0, kpis.enumerated - vaccinated)
 
   const todayTeams = useMemo(() => {
     const allActivityDates = data.activity.map(r => r.date)
@@ -114,8 +121,9 @@ export function KPICards() {
         />
         <KPICard
           title={t('Vaccinated')}
-          value={`${vaccinated.toLocaleString()} (${pct}%)`}
-          sub={t('Coverage vs enumerated')}
+          value={vaccinated.toLocaleString()}
+          valueSuffix={`(${pct}%)`}
+          sub={selectedDate ? t('Cumulative coverage to date') : t('Coverage vs enumerated')}
           accentColor={KPI_ACCENT.vaccinated}
           valueColor={vaccColor}
           delta={deltas.vaccinated}
@@ -134,6 +142,7 @@ export function KPICards() {
         <KPICard
           title={t('Teams Reporting')}
           value={`${todayTeams.size} / ${kpis.totalTeams}`}
+          valueSuffix={`(${Math.round(teamsPct * 100)}%)`}
           sub={t('Active today')}
           accentColor={KPI_ACCENT.teams}
           valueColor={vis.showStatusBadges ? teamsColor : '#1A1F2E'}
