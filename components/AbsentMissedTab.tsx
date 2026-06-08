@@ -23,7 +23,7 @@ function SimpleCard({ title, value, sub, accentColor }: {
   )
 }
 
-const SETTLEMENT_HIGHLIGHT = new Set(['NOMADS_PASTORALISTS', 'SLUMS'])
+const SETTLEMENT_HIGHLIGHT = new Set(['SLUMS'])
 
 export function AbsentMissedTab() {
   const { data, mode, t } = useDashboard()
@@ -50,6 +50,7 @@ export function AbsentMissedTab() {
   const settlementMissed = useMemo(() => {
     if (!data) return []
     return settlementBreakdown(data)
+      .filter(r => r.settlement_type !== 'NOMADS_PASTORALISTS')
       .map(r => ({
         type: r.settlement_type,
         missed: r.eligible_children - r.vaccinated_children,

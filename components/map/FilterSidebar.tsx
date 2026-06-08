@@ -81,9 +81,9 @@ function Sparkline({ values }: { values: number[] }) {
 
 // ── CampaignSummary ──────────────────────────────────────────────────────────
 
-const SETTLEMENT_ORDER = ['URBAN', 'RURAL', 'SLUMS', 'NOMADS_PASTORALISTS']
+const SETTLEMENT_ORDER = ['URBAN', 'RURAL', 'SLUMS']
 const SETTLEMENT_LABEL: Record<string, string> = {
-  URBAN: 'Urban', RURAL: 'Rural', SLUMS: 'Slums', NOMADS_PASTORALISTS: 'Nomads',
+  URBAN: 'Urban', RURAL: 'Rural', SLUMS: 'Slums',
 }
 
 function CampaignSummary({

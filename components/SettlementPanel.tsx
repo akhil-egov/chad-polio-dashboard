@@ -15,7 +15,9 @@ export function SettlementPanel() {
 
   const isPublic = mode === 'public'
 
-  const rows = [...data.settlement].sort((a, b) => b.household_count - a.household_count)
+  const rows = [...data.settlement]
+    .filter(r => r.settlement_type !== 'NOMADS_PASTORALISTS')
+    .sort((a, b) => b.household_count - a.household_count)
   const totalHH = rows.reduce((s, r) => s + r.household_count, 0)
   const totalElig = rows.reduce((s, r) => s + r.eligible_children, 0)
   const totalVax = rows.reduce((s, r) => s + r.vaccinated, 0)
