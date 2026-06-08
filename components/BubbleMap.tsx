@@ -151,6 +151,8 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
     facilitySearch,
     setFacilitySearch,
     filterCount,
+    selectedSettlement,
+    setSelectedSettlement,
   } = useMapState(data)
 
   useEffect(() => {
@@ -209,6 +211,7 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
     handleClear()
     setShowRefusals(false)
     setShowZerodose(false)
+    setSelectedSettlement(null)
   }
 
   const LEGEND_TIERS = vis.showStatusBadges
@@ -271,6 +274,8 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
             zerodoseTotal={data?.gps_zerodose?.length}
             filterCount={filterCount}
             dotColor={vis.dotColor}
+            selectedSettlement={selectedSettlement}
+            onFilterSettlement={setSelectedSettlement}
             />
           </div>
         )}

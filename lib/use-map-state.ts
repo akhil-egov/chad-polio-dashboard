@@ -18,6 +18,7 @@ export function useMapState(data: DashboardData | null) {
   const [showZerodose, setShowZerodose] = useState(false)
   const [selectedReasons, setSelectedReasons] = useState<Set<string> | null>(null)
   const [selectedZdStatuses, setSelectedZdStatuses] = useState<Set<string> | null>(null)
+  const [selectedSettlement, setSelectedSettlement] = useState<string | null>(null)
   const [facilitySearch, setFacilitySearch] = useState('')
 
   // On mount, restore facility selection from URL ?facility= param
@@ -54,21 +55,24 @@ export function useMapState(data: DashboardData | null) {
     if (!data || !showHouseholds) return []
     let locs = data.gps
     if (selectedFac) locs = locs.filter(l => l.facility_name === selectedFac)
+    if (selectedSettlement) locs = locs.filter(l => l.settlement_type === selectedSettlement)
     return locs
-  }, [data, selectedFac, showHouseholds])
+  }, [data, selectedFac, showHouseholds, selectedSettlement])
 
   const visibleRefusals = useMemo((): GpsRefusalRow[] => {
     if (!data || !showRefusals) return []
     let locs = data.gps_refusals ?? []
     if (selectedFac) locs = locs.filter(l => l.facility_name === selectedFac)
+    if (selectedSettlement) locs = locs.filter(l => l.settlement_type === selectedSettlement)
     if (selectedReasons !== null) locs = locs.filter(l => selectedReasons.has(l.reason_for_refusal ?? 'UNKNOWN'))
     return locs
-  }, [data, selectedFac, showRefusals, selectedReasons])
+  }, [data, selectedFac, showRefusals, selectedReasons, selectedSettlement])
 
   const visibleZerodose = useMemo((): GpsZeroDoseRow[] => {
     if (!data || !showZerodose) return []
     let locs = data.gps_zerodose ?? []
     if (selectedFac) locs = locs.filter(l => l.facility_name === selectedFac)
+    if (selectedSettlement) locs = locs.filter(l => l.settlement_type === selectedSettlement)
     if (selectedZdStatuses !== null) {
       locs = locs.filter(l => {
         const key = l.administration_status === 'ADMINISTRATION_SUCCESS' ? 'vaccinated' : 'not_vaccinated'
@@ -76,7 +80,7 @@ export function useMapState(data: DashboardData | null) {
       })
     }
     return locs
-  }, [data, selectedFac, showZerodose, selectedZdStatuses])
+  }, [data, selectedFac, showZerodose, selectedZdStatuses, selectedSettlement])
 
   const allDots = useMemo<AnyDot[]>(() => [
     ...visibleHouseholds.map(row => ({ type: 'household' as const, row })),
@@ -86,7 +90,7 @@ export function useMapState(data: DashboardData | null) {
 
   const totalVisible = visibleHouseholds.length + visibleRefusals.length + visibleZerodose.length
 
-  const filterCount = (selectedFac ? 1 : 0) + (showRefusals ? 1 : 0) + (showZerodose ? 1 : 0)
+  const filterCount = (selectedFac ? 1 : 0) + (showRefusals ? 1 : 0) + (showZerodose ? 1 : 0) + (selectedSettlement ? 1 : 0)
 
   function handleSelect(name: string) {
     const isDeselect = name === selectedFac
@@ -169,6 +173,8 @@ export function useMapState(data: DashboardData | null) {
     toggleZdStatus,
     isZdStatusChecked,
     selectAllZdStatuses,
+    selectedSettlement,
+    setSelectedSettlement,
     visibleHouseholds,
     visibleRefusals,
     visibleZerodose,

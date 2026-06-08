@@ -1,7 +1,9 @@
 'use client'
-import { useState } from 'react'
-import { IconFilter, IconSearch, IconX } from '@tabler/icons-react'
+import { useState, useMemo } from 'react'
+import { IconFilter, IconSearch, IconX, IconChevronDown, IconChevronUp, IconAlertTriangle } from '@tabler/icons-react'
 import { DIGIT_ORANGE, REFUSAL_LABEL, REFUSAL_COLOR } from '@/lib/constants'
+import { useDashboard } from '@/lib/dashboard-context'
+import { getVisibility } from '@/lib/visibility'
 
 export interface FacilityItem {
   name: string
@@ -50,7 +52,182 @@ interface FilterSidebarProps {
   onClose: () => void
   // Visibility
   dotColor: (vaccinated: boolean) => string
+  // Settlement filter
+  selectedSettlement: string | null
+  onFilterSettlement: (type: string | null) => void
 }
+
+// ── Sparkline ────────────────────────────────────────────────────────────────
+
+function Sparkline({ values }: { values: number[] }) {
+  if (values.length < 2) return null
+  const W = 64, H = 22
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const range = max - min || 1
+  const pts = values.map((v, i) => {
+    const x = (i / (values.length - 1)) * W
+    const y = H - 2 - ((v - min) / range) * (H - 6)
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  })
+  const last = pts[pts.length - 1].split(',')
+  return (
+    <svg width={W} height={H} style={{ display: 'block', flexShrink: 0 }}>
+      <polyline points={pts.join(' ')} fill="none" stroke="#006EB6" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={last[0]} cy={last[1]} r={2.5} fill="#006EB6" />
+    </svg>
+  )
+}
+
+// ── CampaignSummary ──────────────────────────────────────────────────────────
+
+const SETTLEMENT_ORDER = ['URBAN', 'RURAL', 'SLUMS', 'NOMADS_PASTORALISTS']
+const SETTLEMENT_LABEL: Record<string, string> = {
+  URBAN: 'Urban', RURAL: 'Rural', SLUMS: 'Slums', NOMADS_PASTORALISTS: 'Nomads',
+}
+
+function CampaignSummary({
+  selectedSettlement,
+  onFilterSettlement,
+  toggleRefusals,
+  showRefusals,
+}: {
+  selectedSettlement: string | null
+  onFilterSettlement: (type: string | null) => void
+  toggleRefusals: () => void
+  showRefusals: boolean
+}) {
+  const { data, mode } = useDashboard()
+  const [expanded, setExpanded] = useState(true)
+  const vis = getVisibility(mode)
+
+  const overallCovPct = useMemo(() => {
+    if (!data?.enumeration?.length) return 0
+    const totalVax = data.enumeration.reduce((s, r) => s + r.vaccinated_children, 0)
+    const totalElig = data.enumeration.reduce((s, r) => s + r.eligible_children, 0)
+    return totalElig > 0 ? (totalVax / totalElig) * 100 : 0
+  }, [data])
+
+  const sparklineValues = useMemo(() => {
+    if (!data?.coverage?.length) return []
+    const byDate = new Map<string, number>()
+    for (const r of data.coverage) {
+      if (!r.date) continue
+      byDate.set(r.date, (byDate.get(r.date) ?? 0) + r.cumulative_vaccinated)
+    }
+    return Array.from(byDate.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, v]) => v)
+  }, [data])
+
+  const silentTeamsCount = useMemo(() => data?.inactive_users?.length ?? 0, [data])
+
+  const topRefusal = useMemo(() => {
+    if (!data?.refusals?.length) return null
+    return [...data.refusals].sort((a, b) => b.count - a.count)[0]
+  }, [data])
+
+  const settlementRows = useMemo(() => {
+    if (!data?.settlement?.length) return []
+    return [...data.settlement]
+      .filter(r => r.pct_complete > 0 || r.eligible_children > 0)
+      .sort((a, b) => SETTLEMENT_ORDER.indexOf(a.settlement_type) - SETTLEMENT_ORDER.indexOf(b.settlement_type))
+      .map(r => ({ ...r, label: SETTLEMENT_LABEL[r.settlement_type] ?? r.settlement_type }))
+  }, [data])
+
+  const covColor = vis.progressBarColor(overallCovPct)
+  const alertCount = mode === 'full' ? silentTeamsCount : 0
+
+  return (
+    <div className="border-b border-gray-200 flex-shrink-0">
+      <button
+        onClick={() => setExpanded(v => !v)}
+        className="w-full px-3 py-1.5 flex items-center justify-between bg-gray-50/80 hover:bg-gray-100/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#006EB6]"
+      >
+        <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Summary</span>
+        <div className="flex items-center gap-1.5">
+          {!expanded && (
+            <span className="text-[13px] font-bold" style={{ color: covColor }}>
+              {overallCovPct.toFixed(1)}%
+            </span>
+          )}
+          {!expanded && alertCount > 0 && (
+            <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+              {alertCount}
+            </span>
+          )}
+          {expanded
+            ? <IconChevronUp size={12} className="text-gray-400" />
+            : <IconChevronDown size={12} className="text-gray-400" />}
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="px-3 py-2 space-y-2">
+          {/* Coverage + sparkline */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[22px] font-bold leading-none" style={{ color: covColor }}>
+              {overallCovPct.toFixed(1)}<span className="text-[12px] ml-0.5 font-semibold">%</span>
+            </div>
+            <Sparkline values={sparklineValues} />
+          </div>
+
+          {/* Alerts — full mode only */}
+          {mode === 'full' && (silentTeamsCount > 0 || topRefusal) && (
+            <div className="space-y-1 pt-1.5 border-t border-gray-100">
+              {silentTeamsCount > 0 && (
+                <div className="flex items-center gap-1.5 text-[12px] text-amber-700">
+                  <IconAlertTriangle size={11} className="flex-shrink-0" />
+                  <span>{silentTeamsCount} silent team{silentTeamsCount !== 1 ? 's' : ''} &gt;6h</span>
+                </div>
+              )}
+              {topRefusal && (
+                <button
+                  onClick={() => { if (!showRefusals) toggleRefusals() }}
+                  className="w-full flex items-center justify-between text-[12px] text-red-700 hover:text-red-900 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006EB6] rounded"
+                >
+                  <span className="truncate">{REFUSAL_LABEL[topRefusal.reason_code] ?? topRefusal.reason_label}</span>
+                  <span className="font-semibold tabular-nums ml-2 flex-shrink-0">{topRefusal.count}</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Settlement filter */}
+          {settlementRows.length > 0 && (
+            <div className="space-y-0.5 pt-1.5 border-t border-gray-100">
+              {settlementRows.map(r => {
+                const active = selectedSettlement === r.settlement_type
+                return (
+                  <button
+                    key={r.settlement_type}
+                    onClick={() => onFilterSettlement(active ? null : r.settlement_type)}
+                    className={`w-full flex items-center gap-2 text-[12px] rounded px-1 py-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006EB6] ${active ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                  >
+                    <span className={`flex-1 text-left ${active ? 'font-semibold text-blue-700' : 'text-gray-600'}`}>
+                      {r.label}
+                    </span>
+                    <span className={`tabular-nums w-8 text-right text-[11px] ${active ? 'text-blue-700 font-semibold' : 'text-gray-400'}`}>
+                      {r.pct_complete.toFixed(0)}%
+                    </span>
+                    <div className="w-14 h-1.5 bg-gray-100 rounded-full overflow-hidden flex-shrink-0">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${Math.min(100, r.pct_complete)}%`, background: vis.progressBarColor(r.pct_complete) }}
+                      />
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── FilterSidebar ────────────────────────────────────────────────────────────
 
 export function FilterSidebar({
   filteredFacilities,
@@ -82,6 +259,8 @@ export function FilterSidebar({
   filterCount,
   onClose,
   dotColor,
+  selectedSettlement,
+  onFilterSettlement,
 }: FilterSidebarProps) {
   const [sortHighToLow, setSortHighToLow] = useState(true)
 
@@ -117,6 +296,14 @@ export function FilterSidebar({
           </button>
         </div>
       </div>
+
+      {/* Campaign summary */}
+      <CampaignSummary
+        selectedSettlement={selectedSettlement}
+        onFilterSettlement={onFilterSettlement}
+        toggleRefusals={toggleRefusals}
+        showRefusals={showRefusals}
+      />
 
       {/* Search input */}
       <div className="px-3 py-2 border-b border-gray-100 flex-shrink-0">
@@ -278,6 +465,8 @@ export function FilterSidebar({
     </div>
   )
 }
+
+// ── Sub-components ───────────────────────────────────────────────────────────
 
 function LayerRow({ color, label, count, active, onToggle }: {
   color: string; label: string; count?: number; active: boolean; onToggle: () => void
