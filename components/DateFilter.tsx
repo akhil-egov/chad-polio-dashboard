@@ -12,16 +12,22 @@ export function DateFilter({ hideLabel, dark }: { hideLabel?: boolean; dark?: bo
   const { data, selectedDate, setSelectedDate, lang, t } = useDashboard()
 
   const dates = data
-    ? Array.from(
-        data.coverage.reduce((map, row) => {
-          if (!row.date) return map
-          const prev = map.get(row.date) ?? false
-          map.set(row.date, prev || row.vaccinated > 0)
-          return map
-        }, new Map<string, boolean>())
-      )
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([date, hasVacc]) => ({ value: date, label: formatLabel(date, hasVacc, lang) }))
+    ? (() => {
+        const map = new Map<string, boolean>()
+        // Vaccination dates — mark hasVacc true
+        for (const row of data.coverage) {
+          if (!row.date) continue
+          map.set(row.date, (map.get(row.date) ?? false) || row.vaccinated > 0)
+        }
+        // Enumeration-only dates (Jun 3–4 etc) — add without overwriting vacc flag
+        for (const row of data.enumeration_daily ?? []) {
+          if (!row.date) continue
+          if (!map.has(row.date)) map.set(row.date, false)
+        }
+        return Array.from(map)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([date, hasVacc]) => ({ value: date, label: formatLabel(date, hasVacc, lang) }))
+      })()
     : []
 
   if (dark) {
