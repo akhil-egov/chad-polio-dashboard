@@ -5,7 +5,6 @@ export type Visibility = ReturnType<typeof getVisibility>
 export function getVisibility(mode: 'public' | 'full') {
   const pub = mode === 'public'
   return {
-    showMissedCard:   !pub,
     showAlertBar:     !pub,
     showTeamActivity: !pub,
     showStatusBadges: !pub,

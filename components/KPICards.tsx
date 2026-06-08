@@ -81,8 +81,6 @@ export function KPICards() {
     return { vaccinated: vacc, pct: kpis.enumerated > 0 ? Math.round((vacc / kpis.enumerated) * 100) : 0 }
   }, [data.coverage, selectedDate, kpis.enumerated])
 
-  const missed = Math.max(0, kpis.enumerated - vaccinated)
-
   const todayTeams = useMemo(() => {
     const allActivityDates = data.activity.map(r => r.date)
     const maxActivityDate = allActivityDates.length > 0
@@ -106,7 +104,7 @@ export function KPICards() {
     }
   }, [data.coverage, data.activity, selectedDate, vaccinated, todayTeams])
 
-  const cols = vis.showMissedCard ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-3'
+  const cols = 'grid-cols-2 md:grid-cols-3'
   const vaccColor = vis.showStatusBadges ? (pct >= 70 ? '#15803D' : pct >= 40 ? '#D97706' : '#DC2626') : '#1A1F2E'
 
   return (
@@ -129,16 +127,6 @@ export function KPICards() {
           delta={deltas.vaccinated}
           vis={vis} t={t}
         />
-        {vis.showMissedCard && (
-          <KPICard
-            title={t('Missed Children')}
-            value={missed.toLocaleString()}
-            sub={t('Need revisit')}
-            accentColor={KPI_ACCENT.missed}
-            valueColor={missed > 0 && vis.showStatusBadges ? '#C2410C' : '#1A1F2E'}
-            vis={vis} t={t}
-          />
-        )}
         <KPICard
           title={t('Teams Reporting')}
           value={`${todayTeams.size} / ${kpis.totalTeams}`}
