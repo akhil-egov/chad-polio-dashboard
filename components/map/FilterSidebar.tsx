@@ -32,6 +32,8 @@ interface FilterSidebarProps {
   toggleRefusals: () => void
   showZerodose: boolean
   toggleZerodose: () => void
+  showClosedHousehold: boolean
+  toggleClosedHousehold: () => void
   // Refusal sub-filters
   refusalReasonCounts: Record<string, number>
   selectedReasons: Set<string> | null
@@ -48,6 +50,7 @@ interface FilterSidebarProps {
   householdsTotal: number | undefined
   refusalsTotal: number | undefined
   zerodoseTotal: number | undefined
+  closedHouseholdTotal: number | undefined
   filterCount: number
   onClose: () => void
   // Visibility
@@ -243,6 +246,8 @@ export function FilterSidebar({
   toggleRefusals,
   showZerodose,
   toggleZerodose,
+  showClosedHousehold,
+  toggleClosedHousehold,
   refusalReasonCounts,
   selectedReasons,
   isReasonChecked,
@@ -256,6 +261,7 @@ export function FilterSidebar({
   householdsTotal,
   refusalsTotal,
   zerodoseTotal,
+  closedHouseholdTotal,
   filterCount,
   onClose,
   dotColor,
@@ -350,6 +356,7 @@ export function FilterSidebar({
                 <span className="w-2 h-2 rounded-full transition-colors" style={{ background: showHouseholds ? '#006EB6' : '#d1d5db' }} />
                 <span className="w-2 h-2 rounded-full transition-colors" style={{ background: showRefusals ? '#C62828' : '#d1d5db' }} />
                 <span className="w-2 h-2 rounded-full transition-colors" style={{ background: showZerodose ? '#F9A825' : '#d1d5db' }} />
+                <span className="w-2 h-2 rounded-full transition-colors" style={{ background: showClosedHousehold ? '#7C3AED' : '#d1d5db' }} />
               </div>
             )}
             {layersExpanded
@@ -433,6 +440,14 @@ export function FilterSidebar({
                 />
               </div>
             )}
+
+            <LayerRow
+              color="#7C3AED"
+              label="Closed Households"
+              count={closedHouseholdTotal}
+              active={showClosedHousehold}
+              onToggle={toggleClosedHousehold}
+            />
           </>
         )}
       </div>

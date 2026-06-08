@@ -9,7 +9,7 @@ import { IconFilter } from '@tabler/icons-react'
 import { useDashboard } from '@/lib/dashboard-context'
 import { useMapState } from '@/lib/use-map-state'
 import type { AnyDot } from '@/lib/use-map-state'
-import { HouseholdCard, RefusalCard, ZeroDoseCard } from '@/components/map/HoverCards'
+import { HouseholdCard, RefusalCard, ZeroDoseCard, ClosedHouseholdCard } from '@/components/map/HoverCards'
 import { FilterSidebar } from '@/components/map/FilterSidebar'
 import type { FacilityItem } from '@/components/map/FilterSidebar'
 import { getVisibility } from '@/lib/visibility'
@@ -133,6 +133,10 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
     showZerodose,
     setShowZerodose,
     toggleZerodose,
+    showClosedHousehold,
+    setShowClosedHousehold,
+    toggleClosedHousehold,
+    visibleClosedHousehold,
     selectedReasons,
     toggleReason,
     isReasonChecked,
@@ -211,6 +215,7 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
     handleClear()
     setShowRefusals(false)
     setShowZerodose(false)
+    setShowClosedHousehold(false)
     setSelectedSettlement(null)
   }
 
@@ -231,6 +236,7 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
     }
     if (showRefusals) items.push({ color: '#C62828', label: `Refusal (${visibleRefusals.length})` })
     if (showZerodose) items.push({ color: '#F9A825', label: `Zero Dose (${visibleZerodose.length})` })
+    if (showClosedHousehold) items.push({ color: '#7C3AED', label: `Closed (${visibleClosedHousehold.length})` })
     return items
   }, [showHouseholds, showRefusals, showZerodose, mode, visibleRefusals.length, visibleZerodose.length])
 
@@ -259,6 +265,8 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
             toggleRefusals={toggleRefusals}
             showZerodose={showZerodose}
             toggleZerodose={toggleZerodose}
+            showClosedHousehold={showClosedHousehold}
+            toggleClosedHousehold={toggleClosedHousehold}
             refusalReasonCounts={refusalReasonCounts}
             selectedReasons={selectedReasons}
             isReasonChecked={isReasonChecked}
@@ -272,6 +280,7 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
             householdsTotal={data?.gps.length}
             refusalsTotal={data?.gps_refusals?.length}
             zerodoseTotal={data?.gps_zerodose?.length}
+            closedHouseholdTotal={data?.gps_closed_household?.length}
             filterCount={filterCount}
             dotColor={vis.dotColor}
             selectedSettlement={selectedSettlement}
@@ -380,6 +389,14 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
               />
             ))}
 
+            {/* Closed household dots — purple, both modes */}
+            {zoom >= ZOOM_THRESHOLD && visibleClosedHousehold.map((loc, i) => (
+              <CircleMarker key={`ch-${i}`} center={[loc.lat, loc.lng]} radius={7}
+                renderer={canvasRenderer}
+                pathOptions={{ color: '#5B21B6', fillColor: '#7C3AED', fillOpacity: 0.85, weight: 1.5 }}
+              />
+            ))}
+
             <DotHoverTracker dots={allDots} zoom={zoom} onHover={setHoveredDot} />
             <ZoomWatcher onZoom={setZoom} />
             <FlyTo target={flyTarget} />
@@ -419,6 +436,7 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
                 {hoveredDot.dot.type === 'household' && <HouseholdCard loc={hoveredDot.dot.row} showTeam={vis.showTeamInHover} />}
                 {hoveredDot.dot.type === 'refusal' && <RefusalCard loc={hoveredDot.dot.row} showTeam={vis.showTeamInHover} />}
                 {hoveredDot.dot.type === 'zerodose' && <ZeroDoseCard loc={hoveredDot.dot.row} showTeam={vis.showTeamInHover} />}
+                {hoveredDot.dot.type === 'closed_household' && <ClosedHouseholdCard loc={hoveredDot.dot.row} showTeam={vis.showTeamInHover} />}
               </div>
             )
           })()}

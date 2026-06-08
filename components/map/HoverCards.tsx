@@ -1,4 +1,4 @@
-import type { GpsRow, GpsRefusalRow, GpsZeroDoseRow } from '@/lib/types'
+import type { GpsRow, GpsRefusalRow, GpsZeroDoseRow, GpsClosedHouseholdRow } from '@/lib/types'
 import { REFUSAL_LABEL, COLORS } from '@/lib/constants'
 
 export function HouseholdCard({ loc, showTeam }: { loc: GpsRow; showTeam: boolean }) {
@@ -66,6 +66,27 @@ export function RefusalCard({ loc, showTeam }: { loc: GpsRefusalRow; showTeam: b
           {reasonLabel}
         </div>
       )}
+    </>
+  )
+}
+
+export function ClosedHouseholdCard({ loc, showTeam }: { loc: GpsClosedHouseholdRow; showTeam: boolean }) {
+  return (
+    <>
+      <div style={{ fontWeight: 700, fontSize: 14, color: COLORS.TEXT_PRIMARY, marginBottom: 4 }}>
+        {loc.facility_name}
+      </div>
+      {showTeam && loc.user_name && (
+        <div style={{ fontSize: 13, color: COLORS.WHO_BLUE, fontWeight: 600, marginBottom: 4 }}>
+          {loc.user_name}
+        </div>
+      )}
+      <div style={{
+        fontSize: 13, fontWeight: 600, color: '#7C3AED',
+        borderTop: '1px solid #ede9fe', paddingTop: 5,
+      }}>
+        🚪 Closed — no one home
+      </div>
     </>
   )
 }

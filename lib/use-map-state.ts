@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import type { DashboardData, GpsRow, GpsRefusalRow, GpsZeroDoseRow } from '@/lib/types'
+import type { DashboardData, GpsRow, GpsRefusalRow, GpsZeroDoseRow, GpsClosedHouseholdRow } from '@/lib/types'
 
 export type AnyDot =
   | { type: 'household'; row: GpsRow }
   | { type: 'refusal'; row: GpsRefusalRow }
   | { type: 'zerodose'; row: GpsZeroDoseRow }
+  | { type: 'closed_household'; row: GpsClosedHouseholdRow }
 
 export function useMapState(data: DashboardData | null) {
   const router = useRouter()
@@ -16,6 +17,7 @@ export function useMapState(data: DashboardData | null) {
   const [showHouseholds, setShowHouseholds] = useState(true)
   const [showRefusals, setShowRefusals] = useState(false)
   const [showZerodose, setShowZerodose] = useState(false)
+  const [showClosedHousehold, setShowClosedHousehold] = useState(false)
   const [selectedReasons, setSelectedReasons] = useState<Set<string> | null>(null)
   const [selectedZdStatuses, setSelectedZdStatuses] = useState<Set<string> | null>(null)
   const [selectedSettlement, setSelectedSettlement] = useState<string | null>(null)
@@ -82,15 +84,24 @@ export function useMapState(data: DashboardData | null) {
     return locs
   }, [data, selectedFac, showZerodose, selectedZdStatuses, selectedSettlement])
 
+  const visibleClosedHousehold = useMemo((): GpsClosedHouseholdRow[] => {
+    if (!data || !showClosedHousehold) return []
+    let locs = data.gps_closed_household ?? []
+    if (selectedFac) locs = locs.filter(l => l.facility_name === selectedFac)
+    if (selectedSettlement) locs = locs.filter(l => l.settlement_type === selectedSettlement)
+    return locs
+  }, [data, selectedFac, showClosedHousehold, selectedSettlement])
+
   const allDots = useMemo<AnyDot[]>(() => [
     ...visibleHouseholds.map(row => ({ type: 'household' as const, row })),
     ...visibleZerodose.map(row => ({ type: 'zerodose' as const, row })),
+    ...visibleClosedHousehold.map(row => ({ type: 'closed_household' as const, row })),
     ...visibleRefusals.map(row => ({ type: 'refusal' as const, row })),
-  ], [visibleHouseholds, visibleZerodose, visibleRefusals])
+  ], [visibleHouseholds, visibleZerodose, visibleClosedHousehold, visibleRefusals])
 
-  const totalVisible = visibleHouseholds.length + visibleRefusals.length + visibleZerodose.length
+  const totalVisible = visibleHouseholds.length + visibleRefusals.length + visibleZerodose.length + visibleClosedHousehold.length
 
-  const filterCount = (selectedFac ? 1 : 0) + (showRefusals ? 1 : 0) + (showZerodose ? 1 : 0) + (selectedSettlement ? 1 : 0)
+  const filterCount = (selectedFac ? 1 : 0) + (showRefusals ? 1 : 0) + (showZerodose ? 1 : 0) + (showClosedHousehold ? 1 : 0) + (selectedSettlement ? 1 : 0)
 
   function handleSelect(name: string) {
     const isDeselect = name === selectedFac
@@ -120,6 +131,7 @@ export function useMapState(data: DashboardData | null) {
   function toggleHouseholds() { setShowHouseholds(v => !v) }
   function toggleRefusals() { setShowRefusals(v => !v) }
   function toggleZerodose() { setShowZerodose(v => !v) }
+  function toggleClosedHousehold() { setShowClosedHousehold(v => !v) }
 
   function toggleReason(reason: string) {
     setSelectedReasons(prev => {
@@ -165,6 +177,10 @@ export function useMapState(data: DashboardData | null) {
     showZerodose,
     setShowZerodose,
     toggleZerodose,
+    showClosedHousehold,
+    setShowClosedHousehold,
+    toggleClosedHousehold,
+    visibleClosedHousehold,
     selectedReasons,
     toggleReason,
     isReasonChecked,

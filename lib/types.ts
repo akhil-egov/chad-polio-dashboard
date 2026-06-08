@@ -103,6 +103,16 @@ export interface GpsZeroDoseRow {
   administration_status: string | null
 }
 
+export interface GpsClosedHouseholdRow {
+  record_id: string
+  lat: number
+  lng: number
+  facility_name: string
+  facility_id: string
+  settlement_type: string | null
+  user_name: string | null
+}
+
 export interface MicroplanRow {
   facility_name: string
   facility_id: string
@@ -162,6 +172,7 @@ export interface DashboardData {
   gps: GpsRow[]
   gps_refusals: GpsRefusalRow[]
   gps_zerodose: GpsZeroDoseRow[]
+  gps_closed_household: GpsClosedHouseholdRow[]
   microplan: MicroplanRow[]
   settlement: SettlementRow[]
   demographics: DemographicsRow[]
