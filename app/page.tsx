@@ -150,6 +150,13 @@ function HomeContent() {
             >
               WHO AFRO
             </div>
+            <div className="hidden sm:block w-px h-6 bg-slate-200 mx-1 shrink-0" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/egov-global.png"
+              alt="eGov Global"
+              className="hidden sm:block h-6 w-auto opacity-85 hover:opacity-100 transition-opacity"
+            />
           </div>
         </div>
 
