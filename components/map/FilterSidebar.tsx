@@ -130,7 +130,7 @@ function CampaignSummary({
   const settlementRows = useMemo(() => {
     if (!data?.settlement?.length) return []
     return [...data.settlement]
-      .filter(r => r.pct_complete > 0 || r.eligible_children > 0)
+      .filter(r => r.settlement_type !== 'HARD_TO_REACH' && (r.pct_complete > 0 || r.eligible_children > 0))
       .sort((a, b) => SETTLEMENT_ORDER.indexOf(a.settlement_type) - SETTLEMENT_ORDER.indexOf(b.settlement_type))
       .map(r => ({ ...r, label: SETTLEMENT_LABEL[r.settlement_type] ?? r.settlement_type }))
   }, [data])
