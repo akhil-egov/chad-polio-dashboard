@@ -26,6 +26,7 @@ const dict: Record<string, { en: string; fr: string }> = {
   'Active today': { en: 'Active today', fr: "Actifs aujourd'hui" },
   'Active on this day': { en: 'Active on this day', fr: 'Actifs ce jour' },
   'Peak reporting day': { en: 'Peak reporting day', fr: 'Meilleur jour de rapport' },
+  'Reported at least one day': { en: 'Reported at least one day', fr: 'A déclaré au moins un jour' },
   'no prior day': { en: 'no prior day', fr: 'pas de comparaison' },
   'vs yesterday': { en: 'vs yesterday', fr: 'vs hier' },
   'Health Facility Coverage': { en: 'Health Facility Coverage', fr: 'Couverture par Centre de Santé' },

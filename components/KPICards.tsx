@@ -75,8 +75,7 @@ export function KPICards() {
       const daily = data.coverage
         .filter(r => r.date === selectedDate)
         .reduce((s, r) => s + r.vaccinated, 0)
-      // pct = daily vaccinated / campaign total eligible (avoids >100% on partial enumeration days)
-      return { vaccinated: daily, pct: kpis.enumerated > 0 ? Math.round((daily / kpis.enumerated) * 100) : 0 }
+      return { vaccinated: daily, pct: eligibleChildren > 0 ? Math.round((daily / eligibleChildren) * 100) : 0 }
     }
     // Campaign total: sum of max cumulative_vaccinated per facility (most up-to-date)
     const maxCum = new Map<string, number>()
@@ -86,23 +85,14 @@ export function KPICards() {
     }
     const vacc = Array.from(maxCum.values()).reduce((s, v) => s + v, 0)
     return { vaccinated: vacc, pct: kpis.enumerated > 0 ? Math.round((vacc / kpis.enumerated) * 100) : 0 }
-  }, [data.coverage, selectedDate, kpis.enumerated])
+  }, [data.coverage, selectedDate, kpis.enumerated, eligibleChildren])
 
   const todayTeams = useMemo(() => {
     if (selectedDate) {
-      return new Set(data.activity.filter(r => r.date === selectedDate).map(r => r.user_name))
+      return new Set(data.activity.filter(r => r.date === selectedDate && r.task_count > 0).map(r => r.user_name))
     }
-    // For "All": use the peak day (most unique reporters) — avoids partial extraction days
-    const byDate = new Map<string, Set<string>>()
-    for (const r of data.activity) {
-      if (!r.date) continue
-      if (!byDate.has(r.date)) byDate.set(r.date, new Set())
-      byDate.get(r.date)!.add(r.user_name)
-    }
-    const peakDate = Array.from(byDate.entries()).reduce(
-      (best, curr) => curr[1].size > best[1].size ? curr : best
-    )[0]
-    return byDate.get(peakDate) ?? new Set<string>()
+    // All: unique teams that completed at least one task on any campaign day
+    return new Set(data.activity.filter(r => r.task_count > 0).map(r => r.user_name))
   }, [data.activity, selectedDate])
 
   const teamsPct = kpis.totalTeams > 0 ? todayTeams.size / kpis.totalTeams : 0
@@ -113,7 +103,7 @@ export function KPICards() {
     const pd = prevDate(selectedDate)
     // Both sides are daily counts — apples to apples
     const prevVacc = data.coverage.filter(r => r.date === pd).reduce((s, r) => s + r.vaccinated, 0)
-    const prevTeams = new Set(data.activity.filter(r => r.date === pd).map(r => r.user_name))
+    const prevTeams = new Set(data.activity.filter(r => r.date === pd && r.task_count > 0).map(r => r.user_name))
     return {
       vaccinated: { value: vaccinated - prevVacc, isGood: vaccinated >= prevVacc },
       teams: { value: todayTeams.size - prevTeams.size, isGood: todayTeams.size >= prevTeams.size },
@@ -147,7 +137,7 @@ export function KPICards() {
           title={t('Teams Reporting')}
           value={`${todayTeams.size} / ${kpis.totalTeams}`}
           valueSuffix={`(${Math.round(teamsPct * 100)}%)`}
-          sub={selectedDate ? t('Active on this day') : t('Peak reporting day')}
+          sub={selectedDate ? t('Active on this day') : t('Reported at least one day')}
           accentColor={KPI_ACCENT.teams}
           valueColor={vis.showStatusBadges ? teamsColor : '#1A1F2E'}
           delta={deltas.teams}
