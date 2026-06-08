@@ -31,20 +31,14 @@ def convert(xlsx_path: str, out_path: str):
     meta_row = meta_df.iloc[0].to_dict()
     data['_metadata'] = {k: clean(v) for k, v in meta_row.items()}
 
-    # Strip extraction date — partial data from the day the extract ran
-    extraction_date = data['_metadata']['run_timestamp'][:10]
-    print(f"Stripping extraction date: {extraction_date}")
-
     # coverage — date must be YYYY-MM-DD string
     cov = xl.parse('coverage')
     cov['date'] = pd.to_datetime(cov['date']).dt.strftime('%Y-%m-%d')
-    cov = cov[cov['date'] != extraction_date]
     data['coverage'] = rows(cov)
 
     # activity — date YYYY-MM-DD, last_sync ISO string, is_inactive bool
     act = xl.parse('activity')
     act['date'] = pd.to_datetime(act['date']).dt.strftime('%Y-%m-%d')
-    act = act[act['date'] != extraction_date]
     if 'last_sync' in act.columns:
         act['last_sync'] = act['last_sync'].apply(
             lambda v: None if pd.isna(v) else (v.isoformat() if hasattr(v, 'isoformat') else str(v))
@@ -63,7 +57,6 @@ def convert(xlsx_path: str, out_path: str):
         ed = xl.parse('enumeration_daily')
         if 'date' in ed.columns:
             ed['date'] = ed['date'].apply(lambda v: None if pd.isna(v) else str(v)[:10])
-            ed = ed[ed['date'] != extraction_date]
         data['enumeration_daily'] = rows(ed)
     else:
         data['enumeration_daily'] = []
