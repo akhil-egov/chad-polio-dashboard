@@ -92,6 +92,12 @@ def convert(xlsx_path: str, out_path: str):
     else:
         data['gps_zerodose'] = []
 
+    # gps_closed_household
+    if 'gps_closed_household' in xl.sheet_names:
+        data['gps_closed_household'] = rows(xl.parse('gps_closed_household'))
+    else:
+        data['gps_closed_household'] = []
+
     # microplan
     data['microplan'] = rows(xl.parse('microplan'))
 
