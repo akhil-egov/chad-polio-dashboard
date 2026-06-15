@@ -58,6 +58,22 @@ interface FilterSidebarProps {
   // Settlement filter
   selectedSettlement: string | null
   onFilterSettlement: (type: string | null) => void
+  // Team filter
+  allTeams: string[]
+  selectedTeams: Set<string> | null
+  isTeamChecked: (team: string) => boolean
+  toggleTeam: (team: string) => void
+  selectAllTeams: () => void
+  teamSearch: string
+  setTeamSearch: (v: string) => void
+  // Date filter
+  allDates: string[]
+  selectedDates: Set<string> | null
+  isDateChecked: (date: string) => boolean
+  toggleDate: (date: string) => void
+  selectAllDates: () => void
+  // Whether any team/date filter is active (to show empty state)
+  noDotsMatch: boolean
 }
 
 // ── Sparkline ────────────────────────────────────────────────────────────────
@@ -230,6 +246,150 @@ function CampaignSummary({
   )
 }
 
+// ── FiltersSection ────────────────────────────────────────────────────────────
+
+function FiltersSection({
+  allTeams,
+  selectedTeams,
+  isTeamChecked,
+  toggleTeam,
+  selectAllTeams,
+  teamSearch,
+  setTeamSearch,
+  allDates,
+  selectedDates,
+  isDateChecked,
+  toggleDate,
+  selectAllDates,
+}: {
+  allTeams: string[]
+  selectedTeams: Set<string> | null
+  isTeamChecked: (t: string) => boolean
+  toggleTeam: (t: string) => void
+  selectAllTeams: () => void
+  teamSearch: string
+  setTeamSearch: (v: string) => void
+  allDates: string[]
+  selectedDates: Set<string> | null
+  isDateChecked: (d: string) => boolean
+  toggleDate: (d: string) => void
+  selectAllDates: () => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  const filteredTeams = useMemo(() => {
+    if (!teamSearch.trim()) return allTeams
+    const q = teamSearch.trim().toLowerCase()
+    return allTeams.filter(t => t.toLowerCase().includes(q))
+  }, [allTeams, teamSearch])
+
+  const teamFilterActive = selectedTeams !== null
+  const dateFilterActive = selectedDates !== null
+
+  return (
+    <div className="border-b border-gray-200 flex-shrink-0">
+      <button
+        onClick={() => setExpanded(v => !v)}
+        className="w-full px-3 py-1.5 flex items-center justify-between bg-gray-50/80 hover:bg-gray-100/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#006EB6]"
+      >
+        <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Filters</span>
+        <div className="flex items-center gap-1.5">
+          {!expanded && (teamFilterActive || dateFilterActive) && (
+            <span className="bg-[#006EB6] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+              {(teamFilterActive ? 1 : 0) + (dateFilterActive ? 1 : 0)}
+            </span>
+          )}
+          {expanded
+            ? <IconChevronUp size={12} className="text-gray-400" />
+            : <IconChevronDown size={12} className="text-gray-400" />}
+        </div>
+      </button>
+
+      {expanded && (
+        <div
+          className="px-3 py-2 space-y-3 overflow-y-auto"
+          style={{ maxHeight: 260, scrollbarWidth: 'thin', scrollbarColor: '#e5e7eb transparent' }}
+        >
+
+          {/* Team subsection */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Team</span>
+              {teamFilterActive && (
+                <button
+                  onClick={selectAllTeams}
+                  className="text-[11px] text-[#006EB6] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006EB6]"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <div className="relative mb-1.5">
+              <IconSearch size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search teams..."
+                value={teamSearch}
+                onChange={e => setTeamSearch(e.target.value)}
+                className="w-full pl-6 pr-2 py-1 text-[12px] border border-gray-200 rounded bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#006EB6] focus:border-transparent"
+              />
+            </div>
+            <div
+              className="space-y-0.5 overflow-y-auto"
+              style={{ maxHeight: 100, scrollbarWidth: 'thin', scrollbarColor: '#e5e7eb transparent' }}
+            >
+              {filteredTeams.length === 0 && (
+                <div className="text-[12px] text-slate-400 text-center py-2">No teams match</div>
+              )}
+              {filteredTeams.map(team => (
+                <SubCheck
+                  key={team}
+                  checked={isTeamChecked(team)}
+                  label={team}
+                  count={0}
+                  color="#006EB6"
+                  onToggle={() => toggleTeam(team)}
+                  hideCount
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Date subsection */}
+          {allDates.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Date</span>
+                {dateFilterActive && (
+                  <button
+                    onClick={selectAllDates}
+                    className="text-[11px] text-[#006EB6] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006EB6]"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="space-y-0.5">
+                {allDates.map(date => (
+                  <SubCheck
+                    key={date}
+                    checked={isDateChecked(date)}
+                    label={date}
+                    count={0}
+                    color="#006EB6"
+                    onToggle={() => toggleDate(date)}
+                    hideCount
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── FilterSidebar ────────────────────────────────────────────────────────────
 
 export function FilterSidebar({
@@ -267,12 +427,25 @@ export function FilterSidebar({
   dotColor,
   selectedSettlement,
   onFilterSettlement,
+  allTeams,
+  selectedTeams,
+  isTeamChecked,
+  toggleTeam,
+  selectAllTeams,
+  teamSearch,
+  setTeamSearch,
+  allDates,
+  selectedDates,
+  isDateChecked,
+  toggleDate,
+  selectAllDates,
+  noDotsMatch,
 }: FilterSidebarProps) {
   const [sortHighToLow, setSortHighToLow] = useState(true)
   const [layersExpanded, setLayersExpanded] = useState(true)
 
   return (
-    <div className="w-[220px] h-full flex flex-col bg-white overflow-hidden">
+    <div className="w-[280px] h-full flex flex-col bg-white overflow-hidden">
 
       {/* Header */}
       <div className="px-3 py-2.5 flex items-center justify-between flex-shrink-0 border-b border-gray-200 bg-white">
@@ -452,6 +625,22 @@ export function FilterSidebar({
         )}
       </div>
 
+      {/* Team + Date filters section */}
+      <FiltersSection
+        allTeams={allTeams}
+        selectedTeams={selectedTeams}
+        isTeamChecked={isTeamChecked}
+        toggleTeam={toggleTeam}
+        selectAllTeams={selectAllTeams}
+        teamSearch={teamSearch}
+        setTeamSearch={setTeamSearch}
+        allDates={allDates}
+        selectedDates={selectedDates}
+        isDateChecked={isDateChecked}
+        toggleDate={toggleDate}
+        selectAllDates={selectAllDates}
+      />
+
       {/* Health Facilities section */}
       <div className="px-3 py-1.5 flex items-center justify-between flex-shrink-0">
         <span className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">Health Facilities</span>
@@ -466,6 +655,12 @@ export function FilterSidebar({
 
       <div className="relative flex-1 overflow-hidden">
         <div className="h-full overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e5e7eb transparent' }}>
+          {noDotsMatch && (
+            <div className="px-4 py-5 text-center">
+              <div className="text-[13px] font-semibold text-slate-500">No records match</div>
+              <div className="text-[12px] text-slate-400 mt-1">Try adjusting the team or date filters</div>
+            </div>
+          )}
           {[...filteredFacilities].sort((a, b) => sortHighToLow ? b.covPct - a.covPct : a.covPct - b.covPct).map(fac => {
             const sel = selectedFac === fac.name
             return (
@@ -479,7 +674,7 @@ export function FilterSidebar({
               >
                 <div className="flex-shrink-0 transition-all" style={{ background: fac.color, width: sel ? '6px' : '4px' }} />
                 <div className="flex-1 px-3 py-2 min-w-0 flex flex-col justify-center">
-                  <div className={`text-[13px] font-semibold truncate ${sel ? 'text-blue-700' : 'text-gray-800'}`}>{fac.name}</div>
+                  <div className={`text-[13px] font-semibold leading-snug ${sel ? 'text-blue-700' : 'text-gray-800'}`}>{fac.name}</div>
                   <div className="text-[13px] font-semibold mt-0.5" style={{ color: fac.color }}>
                     {fac.covPct.toFixed(1)}% <span className="text-gray-400 font-normal text-[12px]">coverage</span>
                   </div>
@@ -491,7 +686,7 @@ export function FilterSidebar({
               </div>
             )
           })}
-          {filteredFacilities.length === 0 && (
+          {filteredFacilities.length === 0 && !noDotsMatch && (
             <div className="px-4 py-6 text-xs text-slate-500 text-center">No facilities match</div>
           )}
         </div>
@@ -530,8 +725,8 @@ function LayerRow({ color, label, count, active, onToggle }: {
   )
 }
 
-function SubCheck({ checked, label, count, color, onToggle }: {
-  checked: boolean; label: string; count: number; color: string; onToggle: () => void
+function SubCheck({ checked, label, count, color, onToggle, hideCount }: {
+  checked: boolean; label: string; count: number; color: string; onToggle: () => void; hideCount?: boolean
 }) {
   return (
     <label className="flex items-center gap-2 cursor-pointer">
@@ -545,9 +740,11 @@ function SubCheck({ checked, label, count, color, onToggle }: {
       <span className={`text-[12px] flex-1 transition-colors ${checked ? 'text-gray-700' : 'text-gray-400'}`}>
         {label}
       </span>
-      <span className={`text-[12px] font-semibold tabular-nums ${checked ? 'text-gray-500' : 'text-gray-300'}`}>
-        {count}
-      </span>
+      {!hideCount && (
+        <span className={`text-[12px] font-semibold tabular-nums ${checked ? 'text-gray-500' : 'text-gray-300'}`}>
+          {count}
+        </span>
+      )}
     </label>
   )
 }

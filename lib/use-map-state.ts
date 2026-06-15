@@ -8,6 +8,13 @@ export type AnyDot =
   | { type: 'zerodose'; row: GpsZeroDoseRow }
   | { type: 'closed_household'; row: GpsClosedHouseholdRow }
 
+const DATE_RE = /(\d{4}-\d{2}-\d{2})/
+
+function extractDate(recordId: string): string | null {
+  const m = DATE_RE.exec(recordId)
+  return m ? m[1] : null
+}
+
 export function useMapState(data: DashboardData | null) {
   const router = useRouter()
   const pathname = usePathname()
@@ -22,6 +29,9 @@ export function useMapState(data: DashboardData | null) {
   const [selectedZdStatuses, setSelectedZdStatuses] = useState<Set<string> | null>(null)
   const [selectedSettlement, setSelectedSettlement] = useState<string | null>(null)
   const [facilitySearch, setFacilitySearch] = useState('')
+  const [selectedTeams, setSelectedTeams] = useState<Set<string> | null>(null)
+  const [selectedDates, setSelectedDates] = useState<Set<string> | null>(null)
+  const [teamSearch, setTeamSearch] = useState('')
 
   // On mount, restore facility selection from URL ?facility= param
   useEffect(() => {
@@ -53,13 +63,46 @@ export function useMapState(data: DashboardData | null) {
     return c
   }, [data])
 
+  // All distinct team codes across all GPS layers, sorted
+  const allTeams = useMemo((): string[] => {
+    if (!data) return []
+    const s = new Set<string>()
+    for (const r of data.gps) { if (r.user_name) s.add(r.user_name) }
+    for (const r of data.gps_refusals ?? []) { if (r.user_name) s.add(r.user_name) }
+    for (const r of data.gps_zerodose ?? []) { if (r.user_name) s.add(r.user_name) }
+    for (const r of data.gps_closed_household ?? []) { if (r.user_name) s.add(r.user_name) }
+    return [...s].sort()
+  }, [data])
+
+  // All distinct dates parseable from record_ids (household + refusal layers only)
+  const allDates = useMemo((): string[] => {
+    if (!data) return []
+    const s = new Set<string>()
+    for (const r of data.gps) {
+      const d = extractDate(r.record_id)
+      if (d) s.add(d)
+    }
+    for (const r of data.gps_refusals ?? []) {
+      const d = extractDate(r.record_id)
+      if (d) s.add(d)
+    }
+    return [...s].sort()
+  }, [data])
+
   const visibleHouseholds = useMemo((): GpsRow[] => {
     if (!data || !showHouseholds) return []
     let locs = data.gps
     if (selectedFac) locs = locs.filter(l => l.facility_name === selectedFac)
     if (selectedSettlement) locs = locs.filter(l => l.settlement_type === selectedSettlement)
+    if (selectedTeams !== null) locs = locs.filter(l => l.user_name != null && selectedTeams.has(l.user_name))
+    if (selectedDates !== null) {
+      locs = locs.filter(l => {
+        const d = extractDate(l.record_id)
+        return d != null && selectedDates.has(d)
+      })
+    }
     return locs
-  }, [data, selectedFac, showHouseholds, selectedSettlement])
+  }, [data, selectedFac, showHouseholds, selectedSettlement, selectedTeams, selectedDates])
 
   const visibleRefusals = useMemo((): GpsRefusalRow[] => {
     if (!data || !showRefusals) return []
@@ -67,8 +110,15 @@ export function useMapState(data: DashboardData | null) {
     if (selectedFac) locs = locs.filter(l => l.facility_name === selectedFac)
     if (selectedSettlement) locs = locs.filter(l => l.settlement_type === selectedSettlement)
     if (selectedReasons !== null) locs = locs.filter(l => selectedReasons.has(l.reason_for_refusal ?? 'UNKNOWN'))
+    if (selectedTeams !== null) locs = locs.filter(l => l.user_name != null && selectedTeams.has(l.user_name))
+    if (selectedDates !== null) {
+      locs = locs.filter(l => {
+        const d = extractDate(l.record_id)
+        return d != null && selectedDates.has(d)
+      })
+    }
     return locs
-  }, [data, selectedFac, showRefusals, selectedReasons, selectedSettlement])
+  }, [data, selectedFac, showRefusals, selectedReasons, selectedSettlement, selectedTeams, selectedDates])
 
   const visibleZerodose = useMemo((): GpsZeroDoseRow[] => {
     if (!data || !showZerodose) return []
@@ -81,16 +131,20 @@ export function useMapState(data: DashboardData | null) {
         return selectedZdStatuses.has(key)
       })
     }
+    if (selectedTeams !== null) locs = locs.filter(l => l.user_name != null && selectedTeams.has(l.user_name))
+    // Date filter not applicable to zerodose (UUID record_ids)
     return locs
-  }, [data, selectedFac, showZerodose, selectedZdStatuses, selectedSettlement])
+  }, [data, selectedFac, showZerodose, selectedZdStatuses, selectedSettlement, selectedTeams])
 
   const visibleClosedHousehold = useMemo((): GpsClosedHouseholdRow[] => {
     if (!data || !showClosedHousehold) return []
     let locs = data.gps_closed_household ?? []
     if (selectedFac) locs = locs.filter(l => l.facility_name === selectedFac)
     if (selectedSettlement) locs = locs.filter(l => l.settlement_type === selectedSettlement)
+    if (selectedTeams !== null) locs = locs.filter(l => l.user_name != null && selectedTeams.has(l.user_name))
+    // Date filter not applicable to closed households (UUID record_ids)
     return locs
-  }, [data, selectedFac, showClosedHousehold, selectedSettlement])
+  }, [data, selectedFac, showClosedHousehold, selectedSettlement, selectedTeams])
 
   const allDots = useMemo<AnyDot[]>(() => [
     ...visibleHouseholds.map(row => ({ type: 'household' as const, row })),
@@ -101,13 +155,27 @@ export function useMapState(data: DashboardData | null) {
 
   const totalVisible = visibleHouseholds.length + visibleRefusals.length + visibleZerodose.length + visibleClosedHousehold.length
 
-  const filterCount = (selectedFac ? 1 : 0) + (showRefusals ? 1 : 0) + (showZerodose ? 1 : 0) + (showClosedHousehold ? 1 : 0) + (selectedSettlement ? 1 : 0)
+  const teamFilterActive = selectedTeams !== null
+  const dateFilterActive = selectedDates !== null
+  const filterCount = (selectedFac ? 1 : 0) + (showRefusals ? 1 : 0) + (showZerodose ? 1 : 0) + (showClosedHousehold ? 1 : 0) + (selectedSettlement ? 1 : 0) + (teamFilterActive ? 1 : 0) + (dateFilterActive ? 1 : 0)
+
+  // Cascaded HF stats: when team/date filters active, recompute from GPS dots
+  const facilityStatsOverride = useMemo((): Map<string, { records: number; vaccinated: number }> | null => {
+    if (!data || (!teamFilterActive && !dateFilterActive)) return null
+    const byFac = new Map<string, { records: number; vaccinated: number }>()
+    for (const loc of visibleHouseholds) {
+      const cur = byFac.get(loc.facility_name) ?? { records: 0, vaccinated: 0 }
+      cur.records++
+      cur.vaccinated += loc.vaccinated_count ?? 0
+      byFac.set(loc.facility_name, cur)
+    }
+    return byFac
+  }, [data, visibleHouseholds, teamFilterActive, dateFilterActive])
 
   function handleSelect(name: string) {
     const isDeselect = name === selectedFac
     const next = isDeselect ? null : name
     setSelectedFac(next)
-    // Sync to URL — preserve non-facility params
     const params = new URLSearchParams(searchParams.toString())
     if (next) {
       const match = data?.enumeration.find(r => r.facility_name === name)
@@ -165,6 +233,38 @@ export function useMapState(data: DashboardData | null) {
 
   function selectAllZdStatuses() { setSelectedZdStatuses(null) }
 
+  function toggleTeam(team: string) {
+    setSelectedTeams(prev => {
+      const current = prev ?? new Set(allTeams)
+      const next = new Set(current)
+      if (next.has(team)) next.delete(team)
+      else next.add(team)
+      return next.size === allTeams.length ? null : next
+    })
+  }
+
+  function isTeamChecked(team: string) {
+    return selectedTeams === null || selectedTeams.has(team)
+  }
+
+  function selectAllTeams() { setSelectedTeams(null) }
+
+  function toggleDate(date: string) {
+    setSelectedDates(prev => {
+      const current = prev ?? new Set(allDates)
+      const next = new Set(current)
+      if (next.has(date)) next.delete(date)
+      else next.add(date)
+      return next.size === allDates.length ? null : next
+    })
+  }
+
+  function isDateChecked(date: string) {
+    return selectedDates === null || selectedDates.has(date)
+  }
+
+  function selectAllDates() { setSelectedDates(null) }
+
   return {
     selectedFac,
     handleSelect,
@@ -202,5 +302,23 @@ export function useMapState(data: DashboardData | null) {
     facilitySearch,
     setFacilitySearch,
     filterCount,
+    // Team filter
+    allTeams,
+    selectedTeams,
+    toggleTeam,
+    isTeamChecked,
+    selectAllTeams,
+    teamSearch,
+    setTeamSearch,
+    // Date filter
+    allDates,
+    selectedDates,
+    toggleDate,
+    isDateChecked,
+    selectAllDates,
+    // Cascaded HF stats
+    facilityStatsOverride,
+    teamFilterActive,
+    dateFilterActive,
   }
 }

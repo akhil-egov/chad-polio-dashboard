@@ -157,6 +157,21 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
     filterCount,
     selectedSettlement,
     setSelectedSettlement,
+    allTeams,
+    selectedTeams,
+    toggleTeam,
+    isTeamChecked,
+    selectAllTeams,
+    teamSearch,
+    setTeamSearch,
+    allDates,
+    selectedDates,
+    toggleDate,
+    isDateChecked,
+    selectAllDates,
+    facilityStatsOverride,
+    teamFilterActive,
+    dateFilterActive,
   } = useMapState(data)
 
   useEffect(() => {
@@ -180,16 +195,22 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
   const facilities = useMemo((): FacilityItem[] => {
     if (!data) return []
     return data.enumeration.map(r => {
-      const covPct = r.pct_complete
+      let covPct = r.pct_complete
+      let records = r.eligible_children
+      if (facilityStatsOverride) {
+        const override = facilityStatsOverride.get(r.facility_name)
+        records = override?.records ?? 0
+        covPct = r.eligible_children > 0 ? ((override?.vaccinated ?? 0) / r.eligible_children) * 100 : 0
+      }
       return {
         name: r.facility_name,
-        records: r.eligible_children,
+        records,
         covPct,
         color: vis.bubbleColor(covPct),
         abbrev: r.facility_name.replace(/^CS\s+/i, ''),
       }
     }).sort((a, b) => a.covPct - b.covPct)
-  }, [data, mode])
+  }, [data, mode, facilityStatsOverride])
 
   const filteredFacilities = useMemo((): FacilityItem[] => {
     if (!facilitySearch) return facilities
@@ -217,6 +238,8 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
     setShowZerodose(false)
     setShowClosedHousehold(false)
     setSelectedSettlement(null)
+    selectAllTeams()
+    selectAllDates()
   }
 
   const LEGEND_TIERS = vis.showStatusBadges
@@ -248,7 +271,7 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
 
         {/* ── Filter panel — outside Leaflet so scroll events are never stolen ── */}
         {panelOpen && (
-          <div className="w-[220px] flex-shrink-0 h-full border-r border-gray-200 overflow-hidden shadow-sm">
+          <div className="w-[280px] flex-shrink-0 h-full border-r border-gray-200 overflow-hidden shadow-sm">
             <FilterSidebar
             facilities={facilities}
             filteredFacilities={filteredFacilities}
@@ -285,6 +308,19 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
             dotColor={vis.dotColor}
             selectedSettlement={selectedSettlement}
             onFilterSettlement={setSelectedSettlement}
+            allTeams={allTeams}
+            selectedTeams={selectedTeams}
+            isTeamChecked={isTeamChecked}
+            toggleTeam={toggleTeam}
+            selectAllTeams={selectAllTeams}
+            teamSearch={teamSearch}
+            setTeamSearch={setTeamSearch}
+            allDates={allDates}
+            selectedDates={selectedDates}
+            isDateChecked={isDateChecked}
+            toggleDate={toggleDate}
+            selectAllDates={selectAllDates}
+            noDotsMatch={totalVisible === 0 && (teamFilterActive || dateFilterActive)}
             />
           </div>
         )}
