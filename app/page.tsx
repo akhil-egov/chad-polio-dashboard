@@ -1,5 +1,5 @@
 'use client'
-import { Suspense } from 'react'
+import { Suspense, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { KPICards } from '@/components/KPICards'
@@ -63,6 +63,31 @@ function HomeContent() {
   const vis = getVisibility(mode)
   const isMap = activeTab === 'map'
 
+  const campaignDateLabels = useMemo(() => {
+    if (!data) return ["N'Djamena"]
+    const locale = lang === 'fr' ? 'fr-FR' : 'en-US'
+    const fmtRange = (dates: string[]) => {
+      if (!dates.length) return null
+      const d0 = new Date(dates[0] + 'T00:00:00')
+      const d1 = new Date(dates[dates.length - 1] + 'T00:00:00')
+      const mon0 = d0.toLocaleDateString(locale, { month: 'short' })
+      const mon1 = d1.toLocaleDateString(locale, { month: 'short' })
+      const day0 = d0.getDate()
+      const day1 = d1.getDate()
+      if (dates.length === 1 || (mon0 === mon1 && day0 === day1)) return `${mon0} ${day0}`
+      if (mon0 === mon1) return `${mon0} ${day0}–${day1}`
+      return `${mon0} ${day0}–${mon1} ${day1}`
+    }
+    const enumDates = (data.enumeration_daily ?? []).map(r => r.date).filter(Boolean).sort()
+    const vaccDates = (data.coverage ?? []).map(r => r.date).filter(Boolean).sort()
+    const labels: string[] = ["N'Djamena"]
+    const enumRange = fmtRange(enumDates)
+    if (enumRange) labels.push(`Enum ${enumRange}`)
+    const vaccRange = fmtRange(vaccDates)
+    if (vaccRange) labels.push(`Vacc ${vaccRange}`)
+    return labels
+  }, [data, lang])
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#F5F0E8' }}>
@@ -104,7 +129,7 @@ function HomeContent() {
               {t('Chad Polio Campaign')}
             </h1>
             <div className="hidden md:flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
-              {["N'Djamena", "Enum Jun 3–7", "Vacc Jun 5–7"].map((item, i, arr) => (
+              {campaignDateLabels.map((item, i, arr) => (
                 <span key={i} className="flex items-center gap-3">
                   <span className="text-[13px] font-semibold tracking-wide uppercase text-slate-500">
                     {item}

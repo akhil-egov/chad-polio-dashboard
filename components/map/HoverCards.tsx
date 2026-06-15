@@ -31,7 +31,7 @@ export function HouseholdCard({ loc, showTeam }: { loc: GpsRow; showTeam: boolea
           color: COLORS.ON_TRACK,
           borderTop: '1px solid #f1f5f9', paddingTop: 5,
         }}>
-          ✓ {vaccinated} children vaccinated
+          ✓ {vaccinated} children vaccinated nearby
         </div>
       )}
     </>
