@@ -161,6 +161,12 @@ export interface EnumerationDailyRow {
   eligible_children: number
 }
 
+export interface FacilityLocationRow {
+  facility_name: string
+  lat: number
+  lng: number
+}
+
 export interface DashboardData {
   _metadata: Metadata
   coverage: CoverageRow[]

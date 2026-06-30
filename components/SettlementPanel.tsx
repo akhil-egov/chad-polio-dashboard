@@ -31,7 +31,7 @@ export function SettlementPanel() {
           const color = SETTLEMENT_COLORS[r.settlement_type] ?? COLORS.TEXT_SECONDARY
           const pctColor = isPublic
             ? 'text-slate-700'
-            : (r.pct_complete >= 80 ? 'text-green-700' : r.pct_complete >= 50 ? 'text-amber-600' : 'text-red-600')
+            : (r.pct_complete >= 70 ? 'text-green-700' : r.pct_complete >= 40 ? 'text-amber-600' : 'text-red-600')
           return (
             <div key={r.settlement_type} className="bg-white rounded-lg shadow-sm overflow-hidden border" style={{ borderColor: COLORS.BORDER }}>
               <div className="h-[4px]" style={{ background: color }} />

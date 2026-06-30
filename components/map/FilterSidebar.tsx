@@ -26,6 +26,9 @@ interface FilterSidebarProps {
   facilitySearch: string
   setFacilitySearch: (v: string) => void
   // Layer toggles
+  showFacilities: boolean
+  toggleFacilities: () => void
+  facilitiesTotal: number | undefined
   showHouseholds: boolean
   toggleHouseholds: () => void
   showRefusals: boolean
@@ -63,6 +66,7 @@ interface FilterSidebarProps {
   selectedTeams: Set<string> | null
   isTeamChecked: (team: string) => boolean
   toggleTeam: (team: string) => void
+  soloTeam: (team: string) => void
   selectAllTeams: () => void
   teamSearch: string
   setTeamSearch: (v: string) => void
@@ -74,6 +78,9 @@ interface FilterSidebarProps {
   selectAllDates: () => void
   // Whether any team/date filter is active (to show empty state)
   noDotsMatch: boolean
+  // Route mode (full mode only)
+  showRoute: boolean
+  toggleRoute: () => void
 }
 
 // ── Sparkline ────────────────────────────────────────────────────────────────
@@ -253,6 +260,7 @@ function FiltersSection({
   selectedTeams,
   isTeamChecked,
   toggleTeam,
+  soloTeam,
   selectAllTeams,
   teamSearch,
   setTeamSearch,
@@ -261,11 +269,14 @@ function FiltersSection({
   isDateChecked,
   toggleDate,
   selectAllDates,
+  showRoute,
+  toggleRoute,
 }: {
   allTeams: string[]
   selectedTeams: Set<string> | null
   isTeamChecked: (t: string) => boolean
   toggleTeam: (t: string) => void
+  soloTeam: (t: string) => void
   selectAllTeams: () => void
   teamSearch: string
   setTeamSearch: (v: string) => void
@@ -274,7 +285,10 @@ function FiltersSection({
   isDateChecked: (d: string) => boolean
   toggleDate: (d: string) => void
   selectAllDates: () => void
+  showRoute: boolean
+  toggleRoute: () => void
 }) {
+  const { mode } = useDashboard()
   const [expanded, setExpanded] = useState(false)
 
   const filteredTeams = useMemo(() => {
@@ -342,15 +356,22 @@ function FiltersSection({
                 <div className="text-[12px] text-slate-400 text-center py-2">No teams match</div>
               )}
               {filteredTeams.map(team => (
-                <SubCheck
-                  key={team}
-                  checked={isTeamChecked(team)}
-                  label={team}
-                  count={0}
-                  color="#006EB6"
-                  onToggle={() => toggleTeam(team)}
-                  hideCount
-                />
+                <div key={team} className="flex items-center gap-1 group">
+                  <SubCheck
+                    checked={isTeamChecked(team)}
+                    label={team}
+                    count={0}
+                    color="#006EB6"
+                    onToggle={() => toggleTeam(team)}
+                    hideCount
+                  />
+                  <button
+                    onClick={() => soloTeam(team)}
+                    className="text-[10px] text-[#006EB6] opacity-0 group-hover:opacity-100 hover:underline transition-opacity focus-visible:opacity-100 focus-visible:outline-none ml-auto flex-shrink-0"
+                  >
+                    only
+                  </button>
+                </div>
               ))}
             </div>
           </div>
@@ -384,6 +405,27 @@ function FiltersSection({
               </div>
             </div>
           )}
+
+          {/* Show route toggle — full mode only, requires a team selected */}
+          {mode === 'full' && selectedTeams !== null && selectedTeams.size > 0 && (
+            <div className="pt-2 border-t border-gray-100">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={showRoute}
+                  onChange={toggleRoute}
+                  className="w-3 h-3 rounded border-gray-300 cursor-pointer focus-visible:ring-2 focus-visible:ring-[#006EB6]"
+                  style={{ accentColor: '#E65100' }}
+                />
+                <span className={`text-[12px] font-semibold transition-colors ${showRoute ? 'text-orange-700' : 'text-gray-500'}`}>
+                  Show route
+                </span>
+                {showRoute && (
+                  <span className="text-[10px] text-gray-400 leading-tight">select 1 date</span>
+                )}
+              </label>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -400,6 +442,9 @@ export function FilterSidebar({
   onClearAll,
   facilitySearch,
   setFacilitySearch,
+  showFacilities,
+  toggleFacilities,
+  facilitiesTotal,
   showHouseholds,
   toggleHouseholds,
   showRefusals,
@@ -431,6 +476,7 @@ export function FilterSidebar({
   selectedTeams,
   isTeamChecked,
   toggleTeam,
+  soloTeam,
   selectAllTeams,
   teamSearch,
   setTeamSearch,
@@ -440,6 +486,8 @@ export function FilterSidebar({
   toggleDate,
   selectAllDates,
   noDotsMatch,
+  showRoute,
+  toggleRoute,
 }: FilterSidebarProps) {
   const [sortHighToLow, setSortHighToLow] = useState(true)
   const [layersExpanded, setLayersExpanded] = useState(true)
@@ -526,6 +574,7 @@ export function FilterSidebar({
           <div className="flex items-center gap-1.5">
             {!layersExpanded && (
               <div className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full transition-colors flex-shrink-0" style={{ border: `1.5px solid ${showFacilities ? '#0D9488' : '#d1d5db'}`, background: 'transparent' }} />
                 <span className="w-2 h-2 rounded-full transition-colors" style={{ background: showHouseholds ? '#006EB6' : '#d1d5db' }} />
                 <span className="w-2 h-2 rounded-full transition-colors" style={{ background: showRefusals ? '#C62828' : '#d1d5db' }} />
                 <span className="w-2 h-2 rounded-full transition-colors" style={{ background: showZerodose ? '#F9A825' : '#d1d5db' }} />
@@ -540,6 +589,14 @@ export function FilterSidebar({
 
         {layersExpanded && (
           <>
+            <LayerRow
+              color="#0D9488"
+              label="Facilities"
+              count={facilitiesTotal}
+              active={showFacilities}
+              onToggle={toggleFacilities}
+              hollow
+            />
             <LayerRow
               color="#006EB6"
               label="Households"
@@ -631,6 +688,7 @@ export function FilterSidebar({
         selectedTeams={selectedTeams}
         isTeamChecked={isTeamChecked}
         toggleTeam={toggleTeam}
+        soloTeam={soloTeam}
         selectAllTeams={selectAllTeams}
         teamSearch={teamSearch}
         setTeamSearch={setTeamSearch}
@@ -639,6 +697,8 @@ export function FilterSidebar({
         isDateChecked={isDateChecked}
         toggleDate={toggleDate}
         selectAllDates={selectAllDates}
+        showRoute={showRoute}
+        toggleRoute={toggleRoute}
       />
 
       {/* Health Facilities section */}
@@ -698,8 +758,8 @@ export function FilterSidebar({
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
-function LayerRow({ color, label, count, active, onToggle }: {
-  color: string; label: string; count?: number; active: boolean; onToggle: () => void
+function LayerRow({ color, label, count, active, onToggle, hollow }: {
+  color: string; label: string; count?: number; active: boolean; onToggle: () => void; hollow?: boolean
 }) {
   return (
     <button
@@ -707,8 +767,10 @@ function LayerRow({ color, label, count, active, onToggle }: {
       className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors border-b border-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#006EB6] ${active ? 'bg-white' : 'bg-gray-50/60'}`}
     >
       <div
-        className="w-3 h-3 rounded-full flex-shrink-0 border border-white/50 shadow-sm transition-colors"
-        style={{ background: active ? color : '#d1d5db' }}
+        className="w-3 h-3 rounded-full flex-shrink-0 shadow-sm transition-colors"
+        style={hollow
+          ? { border: `2px solid ${active ? color : '#d1d5db'}`, background: 'transparent' }
+          : { background: active ? color : '#d1d5db', border: '1px solid rgba(255,255,255,0.5)' }}
       />
       <span className={`text-[13px] font-semibold flex-1 ${active ? 'text-gray-800' : 'text-gray-400'}`}>
         {label}

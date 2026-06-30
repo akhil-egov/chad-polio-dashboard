@@ -10,12 +10,12 @@ import { COLORS } from '@/lib/constants'
 type SortKey = 'pct_complete' | 'missed' | 'eligible' | 'reporting_pct'
 
 function StatusBadge({ pct, t }: { pct: number; t: (k: string) => string }) {
-  if (pct >= 80) return (
+  if (pct >= 70) return (
     <span className="inline-flex items-center gap-1.5 text-[12px] font-bold tracking-wide uppercase px-2.5 py-1 rounded-sm bg-green-50 border border-green-200" style={{ color: COLORS.ON_TRACK }}>
       <span className="w-1.5 h-1.5 rounded-full" style={{ background: COLORS.ON_TRACK }} /> {t('On Track')}
     </span>
   )
-  if (pct >= 50) return (
+  if (pct >= 40) return (
     <span className="inline-flex items-center gap-1.5 text-[12px] font-bold tracking-wide uppercase px-2.5 py-1 rounded-sm bg-amber-50 border border-amber-200" style={{ color: COLORS.ACTIVE }}>
       <span className="w-1.5 h-1.5 rounded-full" style={{ background: COLORS.ACTIVE }} /> {t('At Risk')}
     </span>
@@ -116,9 +116,7 @@ export function HFTable() {
         <tbody>
           {rows.map((r, i) => {
             const partial = r.reportingTeams < r.totalTeams
-            const covColor = vis.showStatusBadges
-              ? (r.pct_complete >= 80 ? COLORS.ON_TRACK : r.pct_complete >= 50 ? COLORS.ACTIVE : COLORS.CRITICAL)
-              : COLORS.WHO_BLUE
+            const covColor = vis.showStatusBadges ? vis.barColor(r.pct_complete) : COLORS.WHO_BLUE
             return (
               <tr key={r.facility_name} className={`border-b transition-colors hover:bg-blue-50/40 ${i % 2 === 0 ? 'bg-white' : ''}`} style={{ borderColor: '#F0EBE3' }}>
                 <td className="px-4 py-3.5">

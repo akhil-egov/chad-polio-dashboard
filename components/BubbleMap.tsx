@@ -1,6 +1,6 @@
 'use client'
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { MapContainer, TileLayer, CircleMarker, GeoJSON, Marker, Popup, useMapEvents, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, CircleMarker, GeoJSON, Marker, Popup, Polyline, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import type { GeoJsonObject } from 'geojson'
 import type { PathOptions } from 'leaflet'
@@ -9,17 +9,51 @@ import { IconFilter } from '@tabler/icons-react'
 import { useDashboard } from '@/lib/dashboard-context'
 import { useMapState } from '@/lib/use-map-state'
 import type { AnyDot } from '@/lib/use-map-state'
-import { HouseholdCard, RefusalCard, ZeroDoseCard, ClosedHouseholdCard } from '@/components/map/HoverCards'
+import type { FacilityLocationRow } from '@/lib/types'
+import { HouseholdCard, RefusalCard, ZeroDoseCard, ClosedHouseholdCard, FacilityCard } from '@/components/map/HoverCards'
 import { FilterSidebar } from '@/components/map/FilterSidebar'
 import type { FacilityItem } from '@/components/map/FilterSidebar'
 import { getVisibility } from '@/lib/visibility'
 import { COLORS, REFUSAL_COLOR } from '@/lib/constants'
 
-const ZOOM_THRESHOLD = 14
+// Campaign-specific fallbacks — override via BubbleMap props. see docs/map-architecture.md#per-deployment
+const FALLBACK_ZOOM_THRESHOLD = 14
+
+// ── Team route palette (experiment) ─────────────────────────────────────────
+const ROUTE_PALETTE = ['#E65100','#0277BD','#2E7D32','#6A1B9A','#00838F','#AD1457','#F57F17','#37474F']
+function routeSeq(recordId: string): number {
+  const parts = recordId.split('-')
+  return parseInt(parts[parts.length - 1], 10) || 0
+}
+function makeRouteIcon(num: number, color: string, isFirst: boolean, isLast: boolean): L.DivIcon {
+  if (isFirst) {
+    return L.divIcon({
+      className: '',
+      html: `<div style="width:22px;height:22px;border-radius:50%;background:#15803D;border:2.5px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:11px;color:white;line-height:1">▶</div>`,
+      iconSize: [22, 22],
+      iconAnchor: [11, 11],
+    })
+  }
+  if (isLast) {
+    return L.divIcon({
+      className: '',
+      html: `<div style="width:22px;height:22px;border-radius:4px;background:#DC2626;border:2.5px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:11px;color:white;line-height:1">■</div>`,
+      iconSize: [22, 22],
+      iconAnchor: [11, 11],
+    })
+  }
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:white;font-family:system-ui">${num}</div>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  })
+}
 
 // ── Bubble icon factory (cached) ─────────────────────────────────────────────
-const DEFAULT_CENTER: [number, number] = [12.105, 15.07]
-const DEFAULT_ZOOM = 12
+// Chad-specific defaults — override via defaultCenter/defaultZoom props
+const FALLBACK_CENTER: [number, number] = [12.105, 15.07]
+const FALLBACK_ZOOM = 12
 
 const _iconCache = new Map<string, L.DivIcon>()
 function makeBubbleIcon(abbrev: string, covPct: number, records: number, color: string) {
@@ -63,27 +97,28 @@ function ZoomWatcher({ onZoom }: { onZoom: (z: number) => void }) {
   return null
 }
 
-function FlyTo({ target }: { target: { pos: [number, number]; id: number; zoom?: number } | null }) {
+function FlyTo({ target, threshold }: { target: { pos: [number, number]; id: number; zoom?: number } | null; threshold: number }) {
   const map = useMap()
   useEffect(() => {
     if (!target) return
-    const z = target.zoom ?? Math.max(map.getZoom(), ZOOM_THRESHOLD)
+    const z = target.zoom ?? Math.max(map.getZoom(), threshold)
     map.flyTo(target.pos, z, { duration: 0.8 })
-  }, [target, map])
+  }, [target, map, threshold])
   return null
 }
 
-// Canvas renderer incompatibility with Leaflet Tooltip/Popup — use pixel-distance
-// scan instead. Dots ordered household → zerodose → refusal so refusal wins on overlap.
-function DotHoverTracker({ dots, zoom, onHover }: {
+// Canvas renderer incompatibility: Leaflet <Tooltip>/<Popup> silently fail on canvas CircleMarkers.
+// This tracker scans pixel-distance via useMapEvents instead. see docs/map-architecture.md#canvas-hover
+function DotHoverTracker({ dots, zoom, threshold, onHover }: {
   dots: AnyDot[]
   zoom: number
+  threshold: number
   onHover: (dot: HoveredDot | null) => void
 }) {
   const map = useMap()
   useMapEvents({
     mousemove(e) {
-      if (zoom < ZOOM_THRESHOLD) { onHover(null); return }
+      if (zoom < threshold) { onHover(null); return }
       const mp = e.containerPoint
       let nearest: AnyDot | null = null
       let minDist = 14
@@ -106,7 +141,31 @@ function DotHoverTracker({ dots, zoom, onHover }: {
 }
 
 // ── Main component ───────────────────────────────────────────────────────────
-export function BubbleMap({ onBack }: { onBack?: () => void }) {
+export interface BubbleMapProps {
+  onBack?: () => void
+  /** Map center on initial load. Set to your campaign country's centroid. */
+  defaultCenter?: [number, number]
+  /** Initial zoom level. 12 works for most country-level campaign views. */
+  defaultZoom?: number
+  /** Path to ADM1 (region/state) GeoJSON boundary file served from /public. */
+  adm1Url?: string
+  /** Path to ADM2 (district) GeoJSON boundary file served from /public. */
+  adm2Url?: string
+  /** Zoom level at which facility bubbles switch to individual GPS dot view. */
+  zoomThreshold?: number
+  /** Path to facility locations JSON file served from /public. */
+  facilitiesUrl?: string
+}
+
+export function BubbleMap({
+  onBack,
+  defaultCenter = FALLBACK_CENTER,
+  defaultZoom = FALLBACK_ZOOM,
+  adm1Url = '/adm1.geojson',
+  adm2Url = '/adm2.geojson',
+  zoomThreshold = FALLBACK_ZOOM_THRESHOLD,
+  facilitiesUrl = '/facility-locations.json',
+}: BubbleMapProps) {
   const { data, mode, t } = useDashboard()
   const vis = getVisibility(mode)
 
@@ -116,15 +175,19 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
   const [flyTarget, setFlyTarget] = useState<{ pos: [number, number]; id: number; zoom?: number } | null>(null)
   const [adm1, setAdm1] = useState<GeoJsonObject | null>(null)
   const [adm2, setAdm2] = useState<GeoJsonObject | null>(null)
+  const [facilityLocations, setFacilityLocations] = useState<FacilityLocationRow[]>([])
   const [satOn, setSatOn] = useState(false)
   const [hoveredDot, setHoveredDot] = useState<HoveredDot | null>(null)
   const [panelOpen, setPanelOpen] = useState(true)
+  const [showRoute, setShowRoute] = useState(false)
   const mapContainerRef = useRef<HTMLDivElement>(null)
 
   const {
     selectedFac,
     handleSelect: selectFac,
     handleClear: clearFac,
+    showFacilities,
+    toggleFacilities,
     showHouseholds,
     toggleHouseholds,
     showRefusals,
@@ -160,6 +223,7 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
     allTeams,
     selectedTeams,
     toggleTeam,
+    soloTeam,
     isTeamChecked,
     selectAllTeams,
     teamSearch,
@@ -175,9 +239,21 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
   } = useMapState(data)
 
   useEffect(() => {
-    fetch('/adm1.geojson').then(r => r.json()).then(setAdm1).catch(() => null)
-    fetch('/adm2.geojson').then(r => r.json()).then(setAdm2).catch(() => null)
+    fetch(adm1Url).then(r => r.json()).then(setAdm1).catch(() => null)
+    fetch(adm2Url).then(r => r.json()).then(setAdm2).catch(() => null)
+    fetch(facilitiesUrl).then(r => r.json()).then(setFacilityLocations).catch(() => null)
   }, [])
+
+  const visibleFacilityDots = useMemo((): FacilityLocationRow[] => {
+    if (!showFacilities) return []
+    if (selectedFac) return facilityLocations.filter(f => f.facility_name === selectedFac)
+    return facilityLocations
+  }, [facilityLocations, showFacilities, selectedFac])
+
+  const allDotsForHover = useMemo<AnyDot[]>(() => [
+    ...allDots,
+    ...visibleFacilityDots.map(row => ({ type: 'facility' as const, row })),
+  ], [allDots, visibleFacilityDots])
 
   const centroids = useMemo(() => {
     if (!data) return new Map<string, [number, number]>()
@@ -229,7 +305,7 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
 
   function handleClear() {
     clearFac()
-    setFlyTarget({ pos: DEFAULT_CENTER, id: Date.now(), zoom: DEFAULT_ZOOM })
+    setFlyTarget({ pos: defaultCenter, id: Date.now(), zoom: defaultZoom })
   }
 
   function handleClearAll() {
@@ -251,7 +327,8 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
     : [{ color: COLORS.WHO_BLUE, label: 'Health facility' }]
 
   const activeDotLegend = useMemo(() => {
-    const items: { color: string; label: string }[] = []
+    const items: { color: string; label: string; hollow?: boolean }[] = []
+    if (showFacilities) items.push({ color: '#0D9488', label: `Facility (${visibleFacilityDots.length})`, hollow: true })
     if (showHouseholds && !vis.showStatusBadges) items.push({ color: COLORS.WHO_BLUE, label: 'Household' })
     if (showHouseholds && vis.showStatusBadges) {
       items.push({ color: COLORS.VAX_YES, label: 'Household — vaccinated' })
@@ -261,7 +338,24 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
     if (showZerodose) items.push({ color: '#F9A825', label: `Zero Dose (${visibleZerodose.length})` })
     if (showClosedHousehold) items.push({ color: '#7C3AED', label: `Closed (${visibleClosedHousehold.length})` })
     return items
-  }, [showHouseholds, showRefusals, showZerodose, mode, visibleRefusals.length, visibleZerodose.length])
+  }, [showFacilities, showHouseholds, showRefusals, showZerodose, showClosedHousehold, mode,
+      visibleFacilityDots.length, visibleRefusals.length, visibleZerodose.length, visibleClosedHousehold.length])
+
+  const routePaths = useMemo(() => {
+    if (mode !== 'full' || !showRoute || !selectedTeams || selectedTeams.size === 0) return []
+    const byTeam = new Map<string, typeof visibleHouseholds>()
+    for (const loc of visibleHouseholds) {
+      if (!loc.user_name) continue
+      if (!byTeam.has(loc.user_name)) byTeam.set(loc.user_name, [])
+      byTeam.get(loc.user_name)!.push(loc)
+    }
+    return Array.from(byTeam.entries()).map(([team, locs]) => {
+      const sorted = [...locs].sort((a, b) => routeSeq(a.record_id) - routeSeq(b.record_id))
+      const idx = allTeams.indexOf(team)
+      const color = ROUTE_PALETTE[idx % ROUTE_PALETTE.length]
+      return { team, color, sorted }
+    })
+  }, [mode, showRoute, selectedTeams, visibleHouseholds, allTeams])
 
   return (
     <div className="flex flex-col w-full h-full bg-white" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" }}>
@@ -269,7 +363,7 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
       {/* ── Map body ── */}
       <div className="flex-1 flex overflow-hidden min-h-0">
 
-        {/* ── Filter panel — outside Leaflet so scroll events are never stolen ── */}
+        {/* ── Filter panel — outside Leaflet so scroll events are never stolen. see docs/map-architecture.md#filter-sidebar ── */}
         {panelOpen && (
           <div className="w-[280px] flex-shrink-0 h-full border-r border-gray-200 overflow-hidden shadow-sm">
             <FilterSidebar
@@ -282,6 +376,9 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
             onClose={() => setPanelOpen(false)}
             facilitySearch={facilitySearch}
             setFacilitySearch={setFacilitySearch}
+            showFacilities={showFacilities}
+            toggleFacilities={toggleFacilities}
+            facilitiesTotal={facilityLocations.length}
             showHouseholds={showHouseholds}
             toggleHouseholds={toggleHouseholds}
             showRefusals={showRefusals}
@@ -312,6 +409,7 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
             selectedTeams={selectedTeams}
             isTeamChecked={isTeamChecked}
             toggleTeam={toggleTeam}
+            soloTeam={soloTeam}
             selectAllTeams={selectAllTeams}
             teamSearch={teamSearch}
             setTeamSearch={setTeamSearch}
@@ -321,6 +419,8 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
             toggleDate={toggleDate}
             selectAllDates={selectAllDates}
             noDotsMatch={totalVisible === 0 && (teamFilterActive || dateFilterActive)}
+            showRoute={showRoute}
+            toggleRoute={() => setShowRoute(v => !v)}
             />
           </div>
         )}
@@ -359,7 +459,7 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
           </div>
         )}
 
-        <MapContainer center={DEFAULT_CENTER} zoom={DEFAULT_ZOOM} className="absolute inset-0" style={{ zIndex: 0 }}>
+        <MapContainer center={defaultCenter} zoom={defaultZoom} className="absolute inset-0" style={{ zIndex: 0 }}>
             <TileLayer
               key={satOn ? 'sat' : 'osm'}
               url={satOn
@@ -371,7 +471,8 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
             {adm2 && <GeoJSON key="adm2" data={adm2} style={() => ADM2_STYLE} onEachFeature={onEachADM2} />}
             {adm1 && <GeoJSON key="adm1" data={adm1} style={() => ADM1_STYLE} />}
 
-            {zoom < ZOOM_THRESHOLD && visibleBubbles.map(fac => {
+            {/* Zoom split: facility bubbles below threshold, individual GPS dots above. see docs/map-architecture.md#zoom-split */}
+            {zoom < zoomThreshold && visibleBubbles.map(fac => {
               const pos = centroids.get(fac.name)
               if (!pos) return null
               return (
@@ -395,19 +496,20 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
               )
             })}
 
-            {/* Household dots — neutralised in public mode */}
-            {zoom >= ZOOM_THRESHOLD && visibleHouseholds.map((loc, i) => {
+            {/* Household dots — neutralised in public mode, dimmed in route mode */}
+            {zoom >= zoomThreshold && visibleHouseholds.map((loc, i) => {
               const vaccinated = (loc.vaccinated_count ?? 0) > 0
+              const opacity = showRoute ? 0.25 : 0.8
               return (
                 <CircleMarker key={`h-${i}`} center={[loc.lat, loc.lng]} radius={6}
                   renderer={canvasRenderer}
-                  pathOptions={{ color: vis.dotStroke(vaccinated), fillColor: vis.dotColor(vaccinated), fillOpacity: 0.8, weight: 1 }}
+                  pathOptions={{ color: vis.dotStroke(vaccinated), fillColor: vis.dotColor(vaccinated), fillOpacity: opacity, weight: 1 }}
                 />
               )
             })}
 
             {/* Refusal dots — color per reason, both modes */}
-            {zoom >= ZOOM_THRESHOLD && visibleRefusals.map((loc, i) => {
+            {zoom >= zoomThreshold && visibleRefusals.map((loc, i) => {
               const fillColor = REFUSAL_COLOR[loc.reason_for_refusal ?? 'UNKNOWN'] ?? COLORS.REFUSAL
               return (
                 <CircleMarker key={`r-${i}`} center={[loc.lat, loc.lng]} radius={7}
@@ -418,7 +520,7 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
             })}
 
             {/* Zero-dose dots — always #F9A825, both modes */}
-            {zoom >= ZOOM_THRESHOLD && visibleZerodose.map((loc, i) => (
+            {zoom >= zoomThreshold && visibleZerodose.map((loc, i) => (
               <CircleMarker key={`z-${i}`} center={[loc.lat, loc.lng]} radius={7}
                 renderer={canvasRenderer}
                 pathOptions={{ color: '#B37A00', fillColor: '#F9A825', fillOpacity: 0.92, weight: 1.5 }}
@@ -426,20 +528,45 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
             ))}
 
             {/* Closed household dots — purple, both modes */}
-            {zoom >= ZOOM_THRESHOLD && visibleClosedHousehold.map((loc, i) => (
+            {zoom >= zoomThreshold && visibleClosedHousehold.map((loc, i) => (
               <CircleMarker key={`ch-${i}`} center={[loc.lat, loc.lng]} radius={7}
                 renderer={canvasRenderer}
                 pathOptions={{ color: '#5B21B6', fillColor: '#7C3AED', fillOpacity: 0.85, weight: 1.5 }}
               />
             ))}
 
-            <DotHoverTracker dots={allDots} zoom={zoom} onHover={setHoveredDot} />
+            {/* Team route paths — full mode experiment */}
+            {zoom >= zoomThreshold && routePaths.map(({ team, color, sorted }) => (
+              <span key={`route-${team}`}>
+                <Polyline
+                  positions={sorted.map(r => [r.lat, r.lng] as [number, number])}
+                  pathOptions={{ color, weight: 2.5, opacity: 0.8 }}
+                />
+                {sorted.map((r, i) => (
+                  <Marker
+                    key={`rpt-${team}-${i}`}
+                    position={[r.lat, r.lng]}
+                    icon={makeRouteIcon(i + 1, color, i === 0, i === sorted.length - 1)}
+                    zIndexOffset={500}
+                  />
+                ))}
+              </span>
+            ))}
+
+            {/* Facility location dots — SVG (not canvas), hollow teal ring, both modes */}
+            {zoom >= zoomThreshold && visibleFacilityDots.map((loc, i) => (
+              <CircleMarker key={`fl-${i}`} center={[loc.lat, loc.lng]} radius={9}
+                pathOptions={{ color: '#0D9488', fillColor: 'transparent', fillOpacity: 0, weight: 2.5 }}
+              />
+            ))}
+
+            <DotHoverTracker dots={allDotsForHover} zoom={zoom} threshold={zoomThreshold} onHover={setHoveredDot} />
             <ZoomWatcher onZoom={setZoom} />
-            <FlyTo target={flyTarget} />
+            <FlyTo target={flyTarget} threshold={zoomThreshold} />
           </MapContainer>
 
           {/* ── Hover card ── */}
-          {hoveredDot && zoom >= ZOOM_THRESHOLD && (() => {
+          {hoveredDot && zoom >= zoomThreshold && (() => {
             const mapWidth = mapContainerRef.current?.offsetWidth ?? window.innerWidth
             const x = hoveredDot.x
             const y = hoveredDot.y
@@ -469,6 +596,7 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
                 maxWidth: 220,
                 whiteSpace: 'nowrap',
               }}>
+                {hoveredDot.dot.type === 'facility' && <FacilityCard loc={hoveredDot.dot.row} />}
                 {hoveredDot.dot.type === 'household' && <HouseholdCard loc={hoveredDot.dot.row} showTeam={vis.showTeamInHover} />}
                 {hoveredDot.dot.type === 'refusal' && <RefusalCard loc={hoveredDot.dot.row} showTeam={vis.showTeamInHover} />}
                 {hoveredDot.dot.type === 'zerodose' && <ZeroDoseCard loc={hoveredDot.dot.row} showTeam={vis.showTeamInHover} />}
@@ -502,7 +630,7 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
           </div>
 
           {/* Zoom hint */}
-          {zoom < ZOOM_THRESHOLD && (
+          {zoom < zoomThreshold && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[800] bg-white/93 border border-gray-200 rounded-full px-4 py-1 text-xs text-gray-500 shadow pointer-events-none whitespace-nowrap">
               Zoom in to see individual records
             </div>
@@ -517,13 +645,17 @@ export function BubbleMap({ onBack }: { onBack?: () => void }) {
                 {label}
               </div>
             ))}
-            {zoom >= ZOOM_THRESHOLD && activeDotLegend.length > 0 && (
+            {zoom >= zoomThreshold && activeDotLegend.length > 0 && (
               <>
                 <hr className="my-1.5 border-gray-100" />
                 <div className="text-[12px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">GPS dots</div>
-                {activeDotLegend.map(({ color, label }) => (
+                {activeDotLegend.map(({ color, label, hollow }) => (
                   <div key={label} className="flex items-center gap-1.5 mb-1 text-gray-600">
-                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={
+                      hollow
+                        ? { border: `2px solid ${color}`, background: 'transparent' }
+                        : { background: color }
+                    } />
                     {label}
                   </div>
                 ))}
