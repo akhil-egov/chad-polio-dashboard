@@ -1,5 +1,9 @@
 export const DIGIT_ORANGE = '#F47738'
 
+// Dates excluded from the dashboard — bad/stray data in the source export.
+// Add any future outlier dates here; they are stripped at data load time.
+export const EXCLUDED_DATES = new Set(['2026-06-15'])
+
 // ── Semantic colour system ─────────────────────────────────────────────────
 // One source of truth. Same hex = same meaning on map, sidebar, table, badge.
 export const COLORS = {

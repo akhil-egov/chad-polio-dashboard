@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import type { DashboardData } from './types'
 import { createT, type Lang } from './i18n'
+import { EXCLUDED_DATES } from './constants'
 
 type Mode = 'public' | 'full'
 
@@ -92,6 +93,12 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         if (!r.ok) throw new Error(`Failed to load data (${r.status})`)
         return r.json()
       })
+      .then((d: DashboardData) => {
+          d.enumeration_daily = (d.enumeration_daily ?? []).filter(r => !EXCLUDED_DATES.has(r.date))
+          d.coverage = d.coverage.filter(r => !EXCLUDED_DATES.has(r.date))
+          d.activity = d.activity.filter(r => !EXCLUDED_DATES.has(r.date))
+          return d
+        })
       .then((d: DashboardData) => setData(d))
       .catch((e: Error) => setError(e.message))
       .finally(() => setIsLoading(false))
