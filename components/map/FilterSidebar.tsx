@@ -84,6 +84,8 @@ interface FilterSidebarProps {
   // Colour mode
   colourMode: 'status' | 'team'
   setColourMode: (m: 'status' | 'team') => void
+  // Facility lock (?facility=X&lock=true) — hides facility controls
+  locked?: boolean
 }
 
 // ── Sparkline ────────────────────────────────────────────────────────────────
@@ -516,6 +518,7 @@ export function FilterSidebar({
   toggleRoute,
   colourMode,
   setColourMode,
+  locked,
 }: FilterSidebarProps) {
   const [sortHighToLow, setSortHighToLow] = useState(true)
   const [layersExpanded, setLayersExpanded] = useState(true)
@@ -561,21 +564,23 @@ export function FilterSidebar({
         showRefusals={showRefusals}
       />
 
-      {/* Search input */}
-      <div className="px-3 py-2 border-b border-gray-100 flex-shrink-0">
-        <div className="relative">
-          <IconSearch size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search facilities..."
-            value={facilitySearch}
-            onChange={e => setFacilitySearch(e.target.value)}
-            className="w-full pl-7 pr-3 py-1.5 text-[13px] border border-gray-200 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#006EB6] focus:border-transparent"
-          />
+      {/* Search input — hidden when facility is locked */}
+      {!locked && (
+        <div className="px-3 py-2 border-b border-gray-100 flex-shrink-0">
+          <div className="relative">
+            <IconSearch size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search facilities..."
+              value={facilitySearch}
+              onChange={e => setFacilitySearch(e.target.value)}
+              className="w-full pl-7 pr-3 py-1.5 text-[13px] border border-gray-200 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#006EB6] focus:border-transparent"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Active facility chip */}
+      {/* Active facility chip — no × when locked */}
       {selectedFac && (
         <div className="px-3 py-1.5 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -583,10 +588,13 @@ export function FilterSidebar({
               className="inline-flex items-center gap-1 text-[12px] font-medium px-2 py-0.5 rounded-full border"
               style={{ background: '#FFF3E0', borderColor: DIGIT_ORANGE, color: DIGIT_ORANGE }}
             >
+              {locked && <span className="mr-0.5">🔒</span>}
               {selectedFac}
-              <button onClick={onClearFacility} className="ml-0.5 hover:opacity-70 focus-visible:outline-none">
-                <IconX size={10} />
-              </button>
+              {!locked && (
+                <button onClick={onClearFacility} className="ml-0.5 hover:opacity-70 focus-visible:outline-none">
+                  <IconX size={10} />
+                </button>
+              )}
             </span>
           </div>
         </div>
@@ -731,8 +739,8 @@ export function FilterSidebar({
         setColourMode={setColourMode}
       />
 
-      {/* Health Facilities section */}
-      <div className="px-3 py-1.5 flex items-center justify-between flex-shrink-0">
+      {/* Health Facilities section — hidden when facility is locked */}
+      {!locked && <div className="px-3 py-1.5 flex items-center justify-between flex-shrink-0">
         <span className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">Health Facilities</span>
         <button
           onClick={() => setSortHighToLow(v => !v)}
@@ -741,17 +749,22 @@ export function FilterSidebar({
         >
           % {sortHighToLow ? '↓' : '↑'}
         </button>
-      </div>
+      </div>}
 
       <div className="relative flex-1 overflow-hidden">
         <div className="h-full overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e5e7eb transparent' }}>
-          {noDotsMatch && (
+          {locked && (
+            <div className="px-4 py-4 text-center text-[12px] text-slate-400">
+              Facility view — filters and layers above apply
+            </div>
+          )}
+          {!locked && noDotsMatch && (
             <div className="px-4 py-5 text-center">
               <div className="text-[13px] font-semibold text-slate-500">No records match</div>
               <div className="text-[12px] text-slate-400 mt-1">Try adjusting the team or date filters</div>
             </div>
           )}
-          {[...filteredFacilities].sort((a, b) => sortHighToLow ? b.covPct - a.covPct : a.covPct - b.covPct).map(fac => {
+          {!locked && [...filteredFacilities].sort((a, b) => sortHighToLow ? b.covPct - a.covPct : a.covPct - b.covPct).map(fac => {
             const sel = selectedFac === fac.name
             return (
               <div
@@ -776,7 +789,7 @@ export function FilterSidebar({
               </div>
             )
           })}
-          {filteredFacilities.length === 0 && !noDotsMatch && (
+          {!locked && filteredFacilities.length === 0 && !noDotsMatch && (
             <div className="px-4 py-6 text-xs text-slate-500 text-center">No facilities match</div>
           )}
         </div>

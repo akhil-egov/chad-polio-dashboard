@@ -38,7 +38,7 @@ interface FacilityRow {
 }
 
 export function HFTable() {
-  const { data, selectedDate, mode, t } = useDashboard()
+  const { data, selectedDate, mode, t, facilityLock } = useDashboard()
   const [sortKey, setSortKey] = useState<SortKey>('missed')
   const [asc, setAsc] = useState(false)
   if (!data) return null
@@ -63,7 +63,9 @@ export function HFTable() {
   }, [data.activity, refDate])
 
   const rows: FacilityRow[] = useMemo(() => {
-    const coverage = coverageByFacility(data)
+    const coverage = facilityLock
+      ? coverageByFacility(data).filter(r => r.facility_name === facilityLock)
+      : coverageByFacility(data)
     const teams = teamActivityByFacility(data)
     const teamsByFacility = new Map(teams.map(t => [t.facility_name, t]))
 
@@ -86,7 +88,7 @@ export function HFTable() {
         ? (a[sortKey] as number) - (b[sortKey] as number)
         : (b[sortKey] as number) - (a[sortKey] as number)
     )
-  }, [data, reportingTeamsByHF, sortKey, asc])
+  }, [data, facilityLock, reportingTeamsByHF, sortKey, asc])
 
   const SortIcon = ({ k }: { k: SortKey }) => {
     if (sortKey !== k) return null

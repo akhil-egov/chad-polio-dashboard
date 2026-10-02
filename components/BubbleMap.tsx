@@ -238,6 +238,7 @@ export function BubbleMap({
     dateFilterActive,
     colourMode,
     setColourMode,
+    locked,
   } = useMapState(data)
 
   useEffect(() => {
@@ -428,6 +429,7 @@ export function BubbleMap({
             toggleRoute={() => setShowRoute(v => !v)}
             colourMode={colourMode}
             setColourMode={setColourMode}
+            locked={locked}
             />
           </div>
         )}

@@ -10,6 +10,8 @@ export function useMapNavigation(data: DashboardData | null) {
   const [selectedFac, setSelectedFac] = useState<string | null>(null)
   const [facilitySearch, setFacilitySearch] = useState('')
 
+  const locked = searchParams.get('lock') === 'true'
+
   useEffect(() => {
     const facilityId = searchParams.get('facility')
     if (!facilityId || !data) return
@@ -18,6 +20,7 @@ export function useMapNavigation(data: DashboardData | null) {
   }, [data, searchParams])
 
   function handleSelect(name: string) {
+    if (locked) return
     const isDeselect = name === selectedFac
     const next = isDeselect ? null : name
     setSelectedFac(next)
@@ -34,6 +37,7 @@ export function useMapNavigation(data: DashboardData | null) {
   }
 
   function handleClear() {
+    if (locked) return
     setSelectedFac(null)
     const params = new URLSearchParams(searchParams.toString())
     params.delete('facility')
@@ -41,7 +45,7 @@ export function useMapNavigation(data: DashboardData | null) {
     router.replace(qs ? `${pathname}?${qs}` : pathname)
   }
 
-  return { selectedFac, facilitySearch, setFacilitySearch, handleSelect, handleClear }
+  return { selectedFac, facilitySearch, setFacilitySearch, handleSelect, handleClear, locked }
 }
 
 export type MapNavigation = ReturnType<typeof useMapNavigation>
