@@ -7,7 +7,7 @@ import { getVisibility } from '@/lib/visibility'
 import { CoverageBar } from '@/components/ui/CoverageBar'
 import { COLORS } from '@/lib/constants'
 
-type SortKey = 'pct_complete' | 'missed' | 'eligible' | 'reporting_pct'
+type SortKey = 'pct_complete' | 'missed' | 'eligible' | 'reporting_pct' | 'reporting_days_pct'
 
 function StatusBadge({ pct, t }: { pct: number; t: (k: string) => string }) {
   if (pct >= 70) return (
@@ -35,6 +35,8 @@ interface FacilityRow {
   totalTeams: number
   reportingTeams: number
   reporting_pct: number
+  reportingDays: number
+  reporting_days_pct: number
 }
 
 export function HFTable() {
@@ -62,6 +64,18 @@ export function HFTable() {
     return reporting
   }, [data.activity, refDate])
 
+  const { allCampaignDates, reportingDaysByHF } = useMemo(() => {
+    const allDates = new Set<string>()
+    const byHF = new Map<string, Set<string>>()
+    for (const r of data.activity) {
+      if (!r.date) continue
+      allDates.add(r.date)
+      if (!byHF.has(r.facility_name)) byHF.set(r.facility_name, new Set())
+      byHF.get(r.facility_name)!.add(r.date)
+    }
+    return { allCampaignDates: allDates, reportingDaysByHF: byHF }
+  }, [data.activity])
+
   const rows: FacilityRow[] = useMemo(() => {
     const coverage = facilityLock
       ? coverageByFacility(data).filter(r => r.facility_name === facilityLock)
@@ -74,6 +88,8 @@ export function HFTable() {
       const teamRow = teamsByFacility.get(r.facility_name)
       const totalTeams = teamRow?.total_users ?? 0
       const reportingTeams = reportingTeamsByHF.get(r.facility_name)?.size ?? 0
+      const reportingDays = reportingDaysByHF.get(r.facility_name)?.size ?? 0
+      const totalDays = allCampaignDates.size
       return {
         facility_name: r.facility_name,
         eligible: r.eligible_children,
@@ -82,13 +98,15 @@ export function HFTable() {
         totalTeams,
         reportingTeams,
         reporting_pct: totalTeams > 0 ? reportingTeams / totalTeams : 0,
+        reportingDays,
+        reporting_days_pct: totalDays > 0 ? reportingDays / totalDays : 0,
       }
     }).sort((a, b) =>
       asc
         ? (a[sortKey] as number) - (b[sortKey] as number)
         : (b[sortKey] as number) - (a[sortKey] as number)
     )
-  }, [data, facilityLock, reportingTeamsByHF, sortKey, asc])
+  }, [data, facilityLock, reportingTeamsByHF, reportingDaysByHF, allCampaignDates, sortKey, asc])
 
   const SortIcon = ({ k }: { k: SortKey }) => {
     if (sortKey !== k) return null
@@ -112,6 +130,7 @@ export function HFTable() {
             <th className={`${thBase} text-slate-500`} onClick={() => handleSort('pct_complete')} tabIndex={0} onKeyDown={e => e.key === 'Enter' && handleSort('pct_complete')}>{t('Coverage %')} <SortIcon k="pct_complete" /></th>
             <th className={`${thBase} text-slate-500`} onClick={() => handleSort('missed')} tabIndex={0} onKeyDown={e => e.key === 'Enter' && handleSort('missed')}>{t('Missed · Revisit')} <SortIcon k="missed" /></th>
             <th className={`${thBase} text-slate-500`} onClick={() => handleSort('reporting_pct')} tabIndex={0} onKeyDown={e => e.key === 'Enter' && handleSort('reporting_pct')}>{t('Teams Reporting')} <SortIcon k="reporting_pct" /></th>
+            <th className={`${thBase} text-slate-500`} onClick={() => handleSort('reporting_days_pct')} tabIndex={0} onKeyDown={e => e.key === 'Enter' && handleSort('reporting_days_pct')}>Days Active <SortIcon k="reporting_days_pct" /></th>
             {vis.showStatusBadges && <th className={`${thStatic} text-slate-500`}>{t('Status')}</th>}
           </tr>
         </thead>
@@ -145,6 +164,12 @@ export function HFTable() {
                     {partial && <IconAlertCircle size={14} className="shrink-0" />}
                     <span>{r.reportingTeams}/{r.totalTeams}</span>
                   </span>
+                </td>
+                <td className="px-4 py-3.5">
+                  <span className="text-[15px] font-medium tabular-nums" style={{ color: r.reportingDays < allCampaignDates.size ? COLORS.ACTIVE : COLORS.TEXT_SECONDARY }}>
+                    {r.reportingDays}/{allCampaignDates.size}
+                  </span>
+                  <div className="text-[12px] text-slate-400">days</div>
                 </td>
                 {vis.showStatusBadges && <td className="px-4 py-3.5"><StatusBadge pct={r.pct_complete} t={t} /></td>}
               </tr>
