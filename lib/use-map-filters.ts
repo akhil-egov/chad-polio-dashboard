@@ -11,11 +11,22 @@ function extractDate(recordId: string): string | null {
 export function useMapFilters(data: DashboardData | null) {
   const [selectedReasons, setSelectedReasons] = useState<Set<string> | null>(null)
   const [selectedZdStatuses, setSelectedZdStatuses] = useState<Set<string> | null>(null)
+  const [selectedHhSubLayers, setSelectedHhSubLayers] = useState<Set<'vaccinated' | 'not_vaccinated'> | null>(null)
   const [selectedSettlement, setSelectedSettlement] = useState<string | null>(null)
   const [selectedTeams, setSelectedTeams] = useState<Set<string> | null>(null)
   const [selectedDates, setSelectedDates] = useState<Set<string> | null>(null)
   const [teamSearch, setTeamSearch] = useState('')
   const [colourMode, setColourMode] = useState<'status' | 'team'>('status')
+
+  const hhSubLayerCounts = useMemo(() => {
+    if (!data?.gps) return { vaccinated: 0, not_vaccinated: 0 }
+    let vacc = 0, notVacc = 0
+    for (const r of data.gps) {
+      if ((r.vaccinated_count ?? 0) > 0) vacc++
+      else notVacc++
+    }
+    return { vaccinated: vacc, not_vaccinated: notVacc }
+  }, [data])
 
   const refusalReasonCounts = useMemo(() => {
     if (!data?.gps_refusals) return {} as Record<string, number>
@@ -76,6 +87,19 @@ export function useMapFilters(data: DashboardData | null) {
   function isReasonChecked(reason: string) { return selectedReasons === null || selectedReasons.has(reason) }
   function selectAllReasons() { setSelectedReasons(null) }
 
+  // Household sub-layer helpers
+  function toggleHhSubLayer(key: 'vaccinated' | 'not_vaccinated') {
+    setSelectedHhSubLayers(prev => {
+      const current = prev ?? new Set<'vaccinated' | 'not_vaccinated'>(['vaccinated', 'not_vaccinated'])
+      const next = new Set(current)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next.size === 2 ? null : next
+    })
+  }
+  function isHhSubLayerChecked(key: 'vaccinated' | 'not_vaccinated') { return selectedHhSubLayers === null || selectedHhSubLayers.has(key) }
+  function selectAllHhSubLayers() { setSelectedHhSubLayers(null) }
+
   // Zero-dose status helpers
   function toggleZdStatus(key: string) {
     setSelectedZdStatuses(prev => {
@@ -117,6 +141,12 @@ export function useMapFilters(data: DashboardData | null) {
   function selectAllDates() { setSelectedDates(null) }
 
   return {
+    // Household sub-layers
+    hhSubLayerCounts,
+    selectedHhSubLayers,
+    toggleHhSubLayer,
+    isHhSubLayerChecked,
+    selectAllHhSubLayers,
     // Refusal reasons
     refusalReasonCounts,
     selectedReasons,

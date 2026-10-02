@@ -218,6 +218,11 @@ export function BubbleMap({
     facilitySearch,
     setFacilitySearch,
     filterCount,
+    hhSubLayerCounts,
+    selectedHhSubLayers,
+    isHhSubLayerChecked,
+    toggleHhSubLayer,
+    selectAllHhSubLayers,
     selectedSettlement,
     setSelectedSettlement,
     allTeams,
@@ -393,6 +398,11 @@ export function BubbleMap({
             toggleZerodose={toggleZerodose}
             showClosedHousehold={showClosedHousehold}
             toggleClosedHousehold={toggleClosedHousehold}
+            hhSubLayerCounts={hhSubLayerCounts}
+            selectedHhSubLayers={selectedHhSubLayers}
+            isHhSubLayerChecked={isHhSubLayerChecked}
+            toggleHhSubLayer={toggleHhSubLayer}
+            selectAllHhSubLayers={selectAllHhSubLayers}
             refusalReasonCounts={refusalReasonCounts}
             selectedReasons={selectedReasons}
             isReasonChecked={isReasonChecked}

@@ -43,6 +43,12 @@ interface FilterSidebarProps {
   isReasonChecked: (reason: string) => boolean
   toggleReason: (reason: string) => void
   selectAllReasons: () => void
+  // Household sub-layer filters
+  hhSubLayerCounts: { vaccinated: number; not_vaccinated: number }
+  selectedHhSubLayers: Set<'vaccinated' | 'not_vaccinated'> | null
+  isHhSubLayerChecked: (key: 'vaccinated' | 'not_vaccinated') => boolean
+  toggleHhSubLayer: (key: 'vaccinated' | 'not_vaccinated') => void
+  selectAllHhSubLayers: () => void
   // Zero-dose sub-filters
   zeroDoseStatusCounts: { vaccinated: number; not_vaccinated: number }
   selectedZdStatuses: Set<string> | null
@@ -481,6 +487,11 @@ export function FilterSidebar({
   toggleZerodose,
   showClosedHousehold,
   toggleClosedHousehold,
+  hhSubLayerCounts,
+  selectedHhSubLayers,
+  isHhSubLayerChecked,
+  toggleHhSubLayer,
+  selectAllHhSubLayers,
   refusalReasonCounts,
   selectedReasons,
   isReasonChecked,
@@ -640,6 +651,32 @@ export function FilterSidebar({
               active={showHouseholds}
               onToggle={toggleHouseholds}
             />
+            {showHouseholds && (
+              <div className="bg-blue-50/60 border-t border-blue-100/60 px-3 py-2 space-y-1">
+                {selectedHhSubLayers !== null && (
+                  <button
+                    onClick={selectAllHhSubLayers}
+                    className="text-[12px] text-[#006EB6] hover:underline w-full text-left mb-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006EB6]"
+                  >
+                    Select all
+                  </button>
+                )}
+                <SubCheck
+                  checked={isHhSubLayerChecked('vaccinated')}
+                  label="Vaccinated ✓"
+                  count={hhSubLayerCounts.vaccinated}
+                  color="#16a34a"
+                  onToggle={() => toggleHhSubLayer('vaccinated')}
+                />
+                <SubCheck
+                  checked={isHhSubLayerChecked('not_vaccinated')}
+                  label="Not yet vaccinated"
+                  count={hhSubLayerCounts.not_vaccinated}
+                  color="#DC2626"
+                  onToggle={() => toggleHhSubLayer('not_vaccinated')}
+                />
+              </div>
+            )}
 
             <LayerRow
               color="#C62828"
