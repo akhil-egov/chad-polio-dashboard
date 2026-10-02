@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import type { DashboardData } from './types'
 import { createT, type Lang } from './i18n'
+import { EXCLUDED_DATES } from './constants'
 
 type Mode = 'public' | 'full'
 
@@ -24,6 +25,8 @@ interface Ctx {
   mode: Mode
   setMode: (m: Mode) => void
   t: (key: string) => string
+  /** Non-null when ?facility=X&lock=true — facility name resolved from data. All facility selection is frozen. */
+  facilityLock: string | null
 }
 
 const DashboardContext = createContext<Ctx | null>(null)
@@ -52,6 +55,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [selectedUser, setSelectedUserState] = useState<string | null>(null)
   const [lang, setLangState] = useState<Lang>('fr')
   const [mode, setModeState] = useState<Mode>('public')
+  const [facilityLock, setFacilityLock] = useState<string | null>(null)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -69,12 +73,32 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     if (u) setSelectedUserState(u)
   }, [])
 
+  // Resolve facility lock after data loads — ?facility=LE&lock=true
+  useEffect(() => {
+    if (!data) return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('lock') !== 'true') return
+    const facilityId = params.get('facility')
+    if (!facilityId) return
+    const match = data.enumeration.find(r => r.facility_id === facilityId)
+    if (match) {
+      setFacilityLock(match.facility_name)
+      setSelectedFacilityState(match.facility_name)
+    }
+  }, [data])
+
   useEffect(() => {
     fetch('/data.json')
       .then(r => {
         if (!r.ok) throw new Error(`Failed to load data (${r.status})`)
         return r.json()
       })
+      .then((d: DashboardData) => {
+          d.enumeration_daily = (d.enumeration_daily ?? []).filter(r => !EXCLUDED_DATES.has(r.date))
+          d.coverage = d.coverage.filter(r => !EXCLUDED_DATES.has(r.date))
+          d.activity = d.activity.filter(r => !EXCLUDED_DATES.has(r.date))
+          return d
+        })
       .then((d: DashboardData) => setData(d))
       .catch((e: Error) => setError(e.message))
       .finally(() => setIsLoading(false))
@@ -101,6 +125,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   }
 
   function setSelectedFacility(f: string | null) {
+    if (facilityLock) return
     setSelectedFacilityState(f)
     setSelectedUserState(null)
     updateOrClearParam('fac', f)
@@ -125,7 +150,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const t = createT(lang)
 
   return (
-    <DashboardContext.Provider value={{ data, isLoading, error, selectedDate, setSelectedDate, selectedRegion, setSelectedRegion, selectedDistrict, setSelectedDistrict, selectedFacility, setSelectedFacility, selectedUser, setSelectedUser, lang, setLang, mode, setMode, t }}>
+    <DashboardContext.Provider value={{ data, isLoading, error, selectedDate, setSelectedDate, selectedRegion, setSelectedRegion, selectedDistrict, setSelectedDistrict, selectedFacility, setSelectedFacility, selectedUser, setSelectedUser, lang, setLang, mode, setMode, t, facilityLock }}>
       {children}
     </DashboardContext.Provider>
   )
