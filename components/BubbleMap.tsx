@@ -14,7 +14,7 @@ import { HouseholdCard, RefusalCard, ZeroDoseCard, ClosedHouseholdCard, Facility
 import { FilterSidebar } from '@/components/map/FilterSidebar'
 import type { FacilityItem } from '@/components/map/FilterSidebar'
 import { getVisibility } from '@/lib/visibility'
-import { COLORS, REFUSAL_COLOR } from '@/lib/constants'
+import { COLORS, REFUSAL_COLOR, teamColor } from '@/lib/constants'
 
 // Campaign-specific fallbacks — override via BubbleMap props. see docs/map-architecture.md#per-deployment
 const FALLBACK_ZOOM_THRESHOLD = 14
@@ -236,6 +236,8 @@ export function BubbleMap({
     facilityStatsOverride,
     teamFilterActive,
     dateFilterActive,
+    colourMode,
+    setColourMode,
   } = useMapState(data)
 
   useEffect(() => {
@@ -329,8 +331,11 @@ export function BubbleMap({
   const activeDotLegend = useMemo(() => {
     const items: { color: string; label: string; hollow?: boolean }[] = []
     if (showFacilities) items.push({ color: '#0D9488', label: `Facility (${visibleFacilityDots.length})`, hollow: true })
-    if (showHouseholds && !vis.showStatusBadges) items.push({ color: COLORS.WHO_BLUE, label: 'Household' })
-    if (showHouseholds && vis.showStatusBadges) {
+    if (showHouseholds && colourMode === 'team') {
+      items.push({ color: COLORS.WHO_BLUE, label: `Household — by team (${visibleHouseholds.length})` })
+    } else if (showHouseholds && !vis.showStatusBadges) {
+      items.push({ color: COLORS.WHO_BLUE, label: 'Household' })
+    } else if (showHouseholds && vis.showStatusBadges) {
       items.push({ color: COLORS.VAX_YES, label: 'Household — vaccinated' })
       items.push({ color: COLORS.VAX_NO,  label: 'Household — not yet' })
     }
@@ -338,8 +343,8 @@ export function BubbleMap({
     if (showZerodose) items.push({ color: '#F9A825', label: `Zero Dose (${visibleZerodose.length})` })
     if (showClosedHousehold) items.push({ color: '#7C3AED', label: `Closed (${visibleClosedHousehold.length})` })
     return items
-  }, [showFacilities, showHouseholds, showRefusals, showZerodose, showClosedHousehold, mode,
-      visibleFacilityDots.length, visibleRefusals.length, visibleZerodose.length, visibleClosedHousehold.length])
+  }, [showFacilities, showHouseholds, showRefusals, showZerodose, showClosedHousehold, mode, colourMode,
+      visibleFacilityDots.length, visibleHouseholds.length, visibleRefusals.length, visibleZerodose.length, visibleClosedHousehold.length])
 
   const routePaths = useMemo(() => {
     if (mode !== 'full' || !showRoute || !selectedTeams || selectedTeams.size === 0) return []
@@ -421,6 +426,8 @@ export function BubbleMap({
             noDotsMatch={totalVisible === 0 && (teamFilterActive || dateFilterActive)}
             showRoute={showRoute}
             toggleRoute={() => setShowRoute(v => !v)}
+            colourMode={colourMode}
+            setColourMode={setColourMode}
             />
           </div>
         )}
@@ -496,14 +503,17 @@ export function BubbleMap({
               )
             })}
 
-            {/* Household dots — neutralised in public mode, dimmed in route mode */}
+            {/* Household dots — neutralised in public mode, dimmed in route mode, team-coloured when colourMode='team' */}
             {zoom >= zoomThreshold && visibleHouseholds.map((loc, i) => {
               const vaccinated = (loc.vaccinated_count ?? 0) > 0
               const opacity = showRoute ? 0.25 : 0.8
+              const fill = colourMode === 'team' && loc.user_name
+                ? teamColor(loc.user_name)
+                : vis.dotColor(vaccinated)
               return (
                 <CircleMarker key={`h-${i}`} center={[loc.lat, loc.lng]} radius={6}
                   renderer={canvasRenderer}
-                  pathOptions={{ color: vis.dotStroke(vaccinated), fillColor: vis.dotColor(vaccinated), fillOpacity: opacity, weight: 1 }}
+                  pathOptions={{ color: fill, fillColor: fill, fillOpacity: opacity, weight: 1 }}
                 />
               )
             })}
@@ -638,7 +648,9 @@ export function BubbleMap({
 
           {/* Legend */}
           <div className="absolute bottom-6 left-3 z-[800] bg-white/96 border border-gray-200 rounded-lg px-3 py-2.5 shadow text-[13px] min-w-[180px]">
-            <div className="text-[12px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Coverage status</div>
+            <div className="text-[12px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">
+              {colourMode === 'team' ? 'Dot colour — by team' : 'Coverage status'}
+            </div>
             {LEGEND_TIERS.map(({ color, label }) => (
               <div key={label} className="flex items-center gap-1.5 mb-1 text-gray-600">
                 <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />

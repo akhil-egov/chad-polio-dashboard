@@ -81,6 +81,9 @@ interface FilterSidebarProps {
   // Route mode (full mode only)
   showRoute: boolean
   toggleRoute: () => void
+  // Colour mode
+  colourMode: 'status' | 'team'
+  setColourMode: (m: 'status' | 'team') => void
 }
 
 // ── Sparkline ────────────────────────────────────────────────────────────────
@@ -271,6 +274,8 @@ function FiltersSection({
   selectAllDates,
   showRoute,
   toggleRoute,
+  colourMode,
+  setColourMode,
 }: {
   allTeams: string[]
   selectedTeams: Set<string> | null
@@ -287,6 +292,8 @@ function FiltersSection({
   selectAllDates: () => void
   showRoute: boolean
   toggleRoute: () => void
+  colourMode: 'status' | 'team'
+  setColourMode: (m: 'status' | 'team') => void
 }) {
   const { mode } = useDashboard()
   const [expanded, setExpanded] = useState(false)
@@ -324,6 +331,25 @@ function FiltersSection({
           className="px-3 py-2 space-y-3 overflow-y-auto"
           style={{ maxHeight: 260, scrollbarWidth: 'thin', scrollbarColor: '#e5e7eb transparent' }}
         >
+
+          {/* Colour mode toggle */}
+          <div>
+            <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Colour dots by</span>
+            <div className="flex rounded-md overflow-hidden border border-gray-200 text-[12px] font-semibold">
+              <button
+                onClick={() => setColourMode('status')}
+                className={`flex-1 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006EB6] ${colourMode === 'status' ? 'bg-[#006EB6] text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+              >
+                Status
+              </button>
+              <button
+                onClick={() => setColourMode('team')}
+                className={`flex-1 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006EB6] border-l border-gray-200 ${colourMode === 'team' ? 'bg-[#006EB6] text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+              >
+                Team
+              </button>
+            </div>
+          </div>
 
           {/* Team subsection */}
           <div>
@@ -488,6 +514,8 @@ export function FilterSidebar({
   noDotsMatch,
   showRoute,
   toggleRoute,
+  colourMode,
+  setColourMode,
 }: FilterSidebarProps) {
   const [sortHighToLow, setSortHighToLow] = useState(true)
   const [layersExpanded, setLayersExpanded] = useState(true)
@@ -699,6 +727,8 @@ export function FilterSidebar({
         selectAllDates={selectAllDates}
         showRoute={showRoute}
         toggleRoute={toggleRoute}
+        colourMode={colourMode}
+        setColourMode={setColourMode}
       />
 
       {/* Health Facilities section */}

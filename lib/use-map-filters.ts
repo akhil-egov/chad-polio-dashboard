@@ -15,6 +15,7 @@ export function useMapFilters(data: DashboardData | null) {
   const [selectedTeams, setSelectedTeams] = useState<Set<string> | null>(null)
   const [selectedDates, setSelectedDates] = useState<Set<string> | null>(null)
   const [teamSearch, setTeamSearch] = useState('')
+  const [colourMode, setColourMode] = useState<'status' | 'team'>('status')
 
   const refusalReasonCounts = useMemo(() => {
     if (!data?.gps_refusals) return {} as Record<string, number>
@@ -149,6 +150,9 @@ export function useMapFilters(data: DashboardData | null) {
     // Active flags (consumed by compositor for filterCount and facilityStatsOverride)
     teamFilterActive: selectedTeams !== null,
     dateFilterActive: selectedDates !== null,
+    // Colour mode
+    colourMode,
+    setColourMode,
   }
 }
 

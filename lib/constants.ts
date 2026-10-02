@@ -56,6 +56,20 @@ export const REFUSAL_COLOR: Record<string, string> = {
   UNKNOWN:               '#64748B', // slate fallback
 }
 
+// ── Team colour — deterministic hash per user_name ────────────────────────
+// Stable across sessions: same team code always gets the same hue.
+// HSL 70% saturation, 42% lightness → visible on both white map and satellite.
+export function teamColor(userName: string): string {
+  let hash = 0
+  for (let i = 0; i < userName.length; i++) {
+    hash = Math.imul(31, hash) + userName.charCodeAt(i) | 0
+  }
+  // Knuth multiplicative hash: spreads sequential team codes (LE-01, LE-02…) across the full hue wheel
+  const mixed = (Math.imul(Math.abs(hash), 2654435761) >>> 0)
+  const h = mixed % 360
+  return `hsl(${h}, 72%, 40%)`
+}
+
 // ── Refusal reason labels ─────────────────────────────────────────────────
 export const REFUSAL_LABEL: Record<string, string> = {
   NOT_DECISION_MAKER:    'Not the decision maker',
