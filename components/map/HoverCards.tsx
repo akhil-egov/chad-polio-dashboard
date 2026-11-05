@@ -1,7 +1,7 @@
 import type { GpsRow, GpsRefusalRow, GpsZeroDoseRow, GpsClosedHouseholdRow, FacilityLocationRow } from '@/lib/types'
 import { REFUSAL_LABEL, COLORS } from '@/lib/constants'
 
-const PROGRAMME = 'Polio OPV'
+const PROGRAMME = 'Polio nOPV2'
 
 function formatDay(recordId: string): string | null {
   const m = /(\d{4}-(\d{2})-(\d{2}))/.exec(recordId)
@@ -23,18 +23,12 @@ function MetaRow({ label, value }: { label: string; value: string }) {
 export function HouseholdCard({ loc, showTeam }: { loc: GpsRow; showTeam: boolean }) {
   const hasVaccData = loc.vaccinated_count != null
   const vaccinated = loc.vaccinated_count ?? 0
-  const header = loc.head_of_household || loc.facility_name
   const day = formatDay(loc.record_id)
   return (
     <>
-      <div style={{ fontWeight: 700, fontSize: 14, color: COLORS.TEXT_PRIMARY, marginBottom: 2 }}>
-        {header}
+      <div style={{ fontWeight: 700, fontSize: 14, color: COLORS.TEXT_PRIMARY, marginBottom: 4 }}>
+        {loc.facility_name}
       </div>
-      {loc.head_of_household && (
-        <div style={{ fontSize: 12, color: COLORS.TEXT_SECONDARY, marginBottom: 4 }}>
-          {loc.facility_name}
-        </div>
-      )}
       {showTeam && loc.user_name && (
         <div style={{ fontSize: 13, color: COLORS.WHO_BLUE, fontWeight: 600, marginBottom: 3 }}>
           {loc.user_name}

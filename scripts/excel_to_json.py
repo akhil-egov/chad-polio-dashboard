@@ -98,6 +98,18 @@ def convert(xlsx_path: str, out_path: str):
     else:
         data['gps_closed_household'] = []
 
+    # PII scrub — applied after all GPS sections are loaded
+    # Strip head_of_household (real names) and reduce coordinate precision to 3 d.p. (~100m)
+    # This runs on every export so PII cannot re-enter the dashboard data file.
+    _GPS_SECTIONS = ['gps', 'gps_refusals', 'gps_zerodose', 'gps_closed_household']
+    for _section in _GPS_SECTIONS:
+        for _r in data.get(_section, []):
+            if 'head_of_household' in _r:
+                _r['head_of_household'] = None
+            for _coord in ('lat', 'lng'):
+                if _r.get(_coord) is not None:
+                    _r[_coord] = round(float(_r[_coord]), 3)
+
     # microplan
     data['microplan'] = rows(xl.parse('microplan'))
 
