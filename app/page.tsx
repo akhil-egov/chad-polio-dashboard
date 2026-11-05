@@ -48,7 +48,7 @@ function PillToggle<T extends string>({
 }
 
 function HomeContent() {
-  const { isLoading, error, data, lang, setLang, mode, setMode, t } = useDashboard()
+  const { isLoading, error, data, lang, setLang, mode, setMode, t, facilityLock } = useDashboard()
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -156,19 +156,26 @@ function HomeContent() {
 
           {/* Right: toggles + WHO badge */}
           <div className="shrink-0 flex items-center gap-2">
+            {facilityLock && (
+              <span className="hidden sm:flex items-center gap-1.5 text-[13px] font-semibold rounded px-2.5 py-1.5" style={{ color: '#006EB6', border: '1px solid rgba(0,110,182,0.3)', background: 'rgba(0,110,182,0.05)' }}>
+                🔒 {facilityLock}
+              </span>
+            )}
             <PillToggle
               options={[{ value: 'fr', label: 'FR' }, { value: 'en', label: 'EN' }]}
               value={lang}
               onChange={setLang}
             />
-            <PillToggle
-              options={[
-                { value: 'public', label: '👁' },
-                { value: 'full', label: '⚙' },
-              ]}
-              value={mode}
-              onChange={setMode}
-            />
+            {!facilityLock && (
+              <PillToggle
+                options={[
+                  { value: 'public', label: '👁' },
+                  { value: 'full', label: '⚙' },
+                ]}
+                value={mode}
+                onChange={setMode}
+              />
+            )}
             <div
               className="hidden sm:block text-[13px] font-bold tracking-wide uppercase rounded px-2.5 py-1.5"
               style={{ color: '#006EB6', border: '1px solid rgba(0,110,182,0.3)' }}

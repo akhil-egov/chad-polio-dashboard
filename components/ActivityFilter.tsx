@@ -13,6 +13,7 @@ export function ActivityFilter() {
     selectedFacility, setSelectedFacility,
     selectedUser, setSelectedUser,
     t,
+    facilityLock,
   } = useDashboard()
 
   const activity = data?.activity ?? []
@@ -82,15 +83,21 @@ export function ActivityFilter() {
 
       <div className="flex items-center gap-1.5">
         <span className={labelClass}>{t('Facility')}</span>
-        <select
-          className={selectClass}
-          value={selectedFacility ?? ''}
-          onChange={e => setSelectedFacility(e.target.value || null)}
-          disabled={facilities.length === 0}
-        >
-          <option value="">{t('All')}</option>
-          {facilities.map(f => <option key={f} value={f}>{f}</option>)}
-        </select>
+        {facilityLock ? (
+          <span className="h-8 flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[13px] text-slate-700">
+            🔒 {facilityLock}
+          </span>
+        ) : (
+          <select
+            className={selectClass}
+            value={selectedFacility ?? ''}
+            onChange={e => setSelectedFacility(e.target.value || null)}
+            disabled={facilities.length === 0}
+          >
+            <option value="">{t('All')}</option>
+            {facilities.map(f => <option key={f} value={f}>{f}</option>)}
+          </select>
+        )}
       </div>
 
       <div className="flex items-center gap-1.5">

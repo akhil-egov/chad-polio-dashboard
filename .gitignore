@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# raw data — may contain PII, never commit
+downloads/
+scripts/chad-sample-data.xlsx
+scripts/output/

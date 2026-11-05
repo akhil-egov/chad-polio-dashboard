@@ -1,5 +1,9 @@
 export const DIGIT_ORANGE = '#F47738'
 
+// Dates excluded from the dashboard — bad/stray data in the source export.
+// Add any future outlier dates here; they are stripped at data load time.
+export const EXCLUDED_DATES = new Set(['2026-06-15'])
+
 // ── Semantic colour system ─────────────────────────────────────────────────
 // One source of truth. Same hex = same meaning on map, sidebar, table, badge.
 export const COLORS = {
@@ -54,6 +58,20 @@ export const REFUSAL_COLOR: Record<string, string> = {
   CONCERNS_ABOUT_NOPV:   '#4D7C0F', // olive
   CONCERNS_ABOUT_COVID19: '#BE185D', // rose
   UNKNOWN:               '#64748B', // slate fallback
+}
+
+// ── Team colour — deterministic hash per user_name ────────────────────────
+// Stable across sessions: same team code always gets the same hue.
+// HSL 70% saturation, 42% lightness → visible on both white map and satellite.
+export function teamColor(userName: string): string {
+  let hash = 0
+  for (let i = 0; i < userName.length; i++) {
+    hash = Math.imul(31, hash) + userName.charCodeAt(i) | 0
+  }
+  // Knuth multiplicative hash: spreads sequential team codes (LE-01, LE-02…) across the full hue wheel
+  const mixed = (Math.imul(Math.abs(hash), 2654435761) >>> 0)
+  const h = mixed % 360
+  return `hsl(${h}, 72%, 40%)`
 }
 
 // ── Refusal reason labels ─────────────────────────────────────────────────

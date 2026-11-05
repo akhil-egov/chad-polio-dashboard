@@ -72,7 +72,7 @@ export interface GpsRow {
   user_name: string | null
   member_count: number | null
   vaccinated_count: number | null  // children vaccinated at this household (from task index)
-  head_of_household: string | null
+  head_of_household: null  // PII removed — always null
 }
 
 export interface GpsRefusalRow {

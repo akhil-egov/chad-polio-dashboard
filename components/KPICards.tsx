@@ -56,44 +56,51 @@ function prevDate(d: string): string {
 }
 
 export function KPICards() {
-  const { data, selectedDate, mode, t } = useDashboard()
+  const { data, selectedDate, mode, t, facilityLock } = useDashboard()
   if (!data) return null
 
   const vis = getVisibility(mode)
-  const kpis = campaignKPIs(data)
+  const scopedData = facilityLock ? {
+    ...data,
+    enumeration: data.enumeration.filter(r => r.facility_name === facilityLock),
+    coverage: data.coverage.filter(r => r.facility_name === facilityLock),
+    activity: data.activity.filter(r => r.facility_name === facilityLock),
+    enumeration_daily: (data.enumeration_daily ?? []).filter(r => r.facility_name === facilityLock),
+  } : data
+  const kpis = campaignKPIs(scopedData)
 
   // Eligible children denominator — daily count when date selected, campaign total otherwise
   const eligibleChildren = useMemo(() => {
     if (!selectedDate) return kpis.enumerated
-    const dayRows = (data.enumeration_daily ?? []).filter(r => r.date === selectedDate)
+    const dayRows = (scopedData.enumeration_daily ?? []).filter(r => r.date === selectedDate)
     if (dayRows.length === 0) return kpis.enumerated
     return dayRows.reduce((s, r) => s + r.eligible_children, 0)
-  }, [data.enumeration_daily, selectedDate, kpis.enumerated])
+  }, [scopedData.enumeration_daily, selectedDate, kpis.enumerated])
 
   const { vaccinated, pct } = useMemo(() => {
     if (selectedDate) {
-      const daily = data.coverage
+      const daily = scopedData.coverage
         .filter(r => r.date === selectedDate)
         .reduce((s, r) => s + r.vaccinated, 0)
       return { vaccinated: daily, pct: eligibleChildren > 0 ? Math.round((daily / eligibleChildren) * 100) : 0 }
     }
     // Campaign total: sum of max cumulative_vaccinated per facility (most up-to-date)
     const maxCum = new Map<string, number>()
-    for (const r of data.coverage) {
+    for (const r of scopedData.coverage) {
       if ((r.cumulative_vaccinated ?? 0) > (maxCum.get(r.facility_name) ?? 0))
         maxCum.set(r.facility_name, r.cumulative_vaccinated)
     }
     const vacc = Array.from(maxCum.values()).reduce((s, v) => s + v, 0)
     return { vaccinated: vacc, pct: kpis.enumerated > 0 ? Math.round((vacc / kpis.enumerated) * 100) : 0 }
-  }, [data.coverage, selectedDate, kpis.enumerated, eligibleChildren])
+  }, [scopedData.coverage, selectedDate, kpis.enumerated, eligibleChildren])
 
   const todayTeams = useMemo(() => {
     if (selectedDate) {
-      return new Set(data.activity.filter(r => r.date === selectedDate && r.task_count > 0).map(r => r.user_name))
+      return new Set(scopedData.activity.filter(r => r.date === selectedDate && r.task_count > 0).map(r => r.user_name))
     }
     // All: unique teams that completed at least one task on any campaign day
-    return new Set(data.activity.filter(r => r.task_count > 0).map(r => r.user_name))
-  }, [data.activity, selectedDate])
+    return new Set(scopedData.activity.filter(r => r.task_count > 0).map(r => r.user_name))
+  }, [scopedData.activity, selectedDate])
 
   const teamsPct = kpis.totalTeams > 0 ? todayTeams.size / kpis.totalTeams : 0
   const teamsColor = teamsPct < 0.6 ? '#DC2626' : teamsPct < 0.8 ? '#D97706' : '#1A1F2E'
@@ -102,13 +109,13 @@ export function KPICards() {
     if (!selectedDate) return { vaccinated: null, teams: null }
     const pd = prevDate(selectedDate)
     // Both sides are daily counts — apples to apples
-    const prevVacc = data.coverage.filter(r => r.date === pd).reduce((s, r) => s + r.vaccinated, 0)
-    const prevTeams = new Set(data.activity.filter(r => r.date === pd && r.task_count > 0).map(r => r.user_name))
+    const prevVacc = scopedData.coverage.filter(r => r.date === pd).reduce((s, r) => s + r.vaccinated, 0)
+    const prevTeams = new Set(scopedData.activity.filter(r => r.date === pd && r.task_count > 0).map(r => r.user_name))
     return {
       vaccinated: { value: vaccinated - prevVacc, isGood: vaccinated >= prevVacc },
       teams: { value: todayTeams.size - prevTeams.size, isGood: todayTeams.size >= prevTeams.size },
     }
-  }, [data.coverage, data.activity, selectedDate, vaccinated, todayTeams])
+  }, [scopedData.coverage, scopedData.activity, selectedDate, vaccinated, todayTeams])
 
   const cols = 'grid-cols-2 md:grid-cols-3'
   const vaccColor = vis.showStatusBadges ? (pct >= 70 ? '#15803D' : pct >= 40 ? '#D97706' : '#DC2626') : '#1A1F2E'

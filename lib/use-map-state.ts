@@ -27,6 +27,7 @@ export function useMapState(data: DashboardData | null) {
   const {
     selectedReasons, selectedZdStatuses, selectedSettlement,
     selectedTeams, selectedDates, teamFilterActive, dateFilterActive,
+    selectedHhSubLayers,
   } = filters
   const { selectedFac } = nav
 
@@ -42,8 +43,11 @@ export function useMapState(data: DashboardData | null) {
         return d != null && selectedDates.has(d)
       })
     }
+    if (selectedHhSubLayers !== null) {
+      locs = locs.filter(l => selectedHhSubLayers.has((l.vaccinated_count ?? 0) > 0 ? 'vaccinated' : 'not_vaccinated'))
+    }
     return locs
-  }, [data, selectedFac, showHouseholds, selectedSettlement, selectedTeams, selectedDates])
+  }, [data, selectedFac, showHouseholds, selectedSettlement, selectedTeams, selectedDates, selectedHhSubLayers])
 
   const visibleRefusals = useMemo((): GpsRefusalRow[] => {
     if (!data || !showRefusals) return []
